@@ -1,0 +1,20 @@
+amcl:
+  ros__parameters:
+    use_sim_time: false
+    # frames
+    global_frame_id: "map"
+    base_frame_id: "base_link"
+    odom_frame_id: "odom"
+
+    # sensor / scan topic used by AMCL
+    scan_topic: "/scan"
+
+    # particle filter tuning (example defaults; tune for your robot)
+    min_particles: 500
+    max_particles: 2000
+    update_min_d: 0.2
+    update_min_a: 0.2
+
+    # laser model tuning
+    laser_likelihood_max_dist: 2.0
+    do_beamskip: false

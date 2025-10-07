@@ -30,6 +30,7 @@ def generate_launch_description():
  # Declare launch arguments
     ld.add_action(DeclareLaunchArgument(
         'use_sim_time', default_value='False', description='Use simulation time'))
+    use_sim_time = LaunchConfiguration('use_sim_time')
 
     # pointcloud_to_laserscan: sample_pointcloud_to_laserscan_launch.py
     try:

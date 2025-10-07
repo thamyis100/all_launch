@@ -27,6 +27,9 @@ from launch_ros.actions import Node
 
 def generate_launch_description():
     ld = LaunchDescription()
+ # Declare launch arguments
+    ld.add_action(DeclareLaunchArgument(
+        'use_sim_time', default_value='False', description='Use simulation time'))
 
     # pointcloud_to_laserscan: sample_pointcloud_to_laserscan_launch.py
     try:
@@ -35,7 +38,7 @@ def generate_launch_description():
             PythonLaunchDescriptionSource(
                 os.path.join(pkg_p2l, 'launch', 'sample_pointcloud_to_laserscan_launch.py')
             ),
-            launch_arguments={'use_sim_time': 'True'}.items(),
+            launch_arguments={'use_sim_time': use_sim_time}.items(),
         )
         ld.add_action(p2l_launch)
     except Exception as e:
@@ -49,7 +52,7 @@ def generate_launch_description():
             PythonLaunchDescriptionSource(
                 os.path.join(pkg_point_lio, 'launch', 'mapping_mid360.launch.py')
             ),
-            launch_arguments={'use_sim_time': 'True'}.items(),
+            launch_arguments={'use_sim_time': use_sim_time}.items(),
         )
         ld.add_action(point_lio_launch)
     except Exception as e:
@@ -63,7 +66,7 @@ def generate_launch_description():
                 os.path.join(pkg_gm, 'launch', 'slam_gmapping.launch.py')
             ),
             # pass use_sim_time=True as well to unify clocks
-            launch_arguments={'use_sim_time': 'True'}.items(),
+            launch_arguments={'use_sim_time': use_sim_time}.items(),
         )
         ld.add_action(gmapping_launch)
     except Exception as e:
@@ -77,7 +80,7 @@ def generate_launch_description():
         name='rviz2',
         output='screen',
         arguments=['-d', rviz_config],
-        parameters=[{'use_sim_time': True}],
+        parameters=[{'use_sim_time': use_sim_time}],
     )
     ld.add_action(rviz_node)
 

@@ -27,7 +27,7 @@ def generate_launch_description():
         'use_sim_time', default_value='False', description='Use simulation time'))
 
     ld.add_action(DeclareLaunchArgument(
-        'params_file', default_value='/home/thamyis/SLAM_ws/src/all_launch/config/nav2_params_yoga.yaml',
+        'params_file', default_value='/home/mobimobi/thamyis/robot_TA_ws/src/all_launch/config/nav2_params_yoga.yaml',
         description='Full path to Nav2 params file'))
 
     use_sim_time = LaunchConfiguration('use_sim_time')

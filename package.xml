@@ -6,10 +6,11 @@
   <description>Launch files for Yahboom mobile robot with SLAM capabilities</description>
   <maintainer email="yoga.dana69@gmail.com">yoga</maintainer>
   <license>TODO: License declaration</license>
-
+  
   <buildtool_depend>ament_cmake</buildtool_depend>
+  
+  <exec_depend>rclpy</exec_depend> <!-- if you use python launch files -->
 
-  <depend>rclcpp</depend>
   <exec_depend>launch</exec_depend>
   <exec_depend>launch_ros</exec_depend>
   <exec_depend>slam_toolbox</exec_depend>

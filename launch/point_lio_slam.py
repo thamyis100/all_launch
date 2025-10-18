@@ -18,11 +18,15 @@ launch file names if your installation differs.
 """
 
 import os
+
 from launch import LaunchDescription
-from launch.actions import IncludeLaunchDescription
+from launch.actions import IncludeLaunchDescription, DeclareLaunchArgument
 from launch.launch_description_sources import PythonLaunchDescriptionSource
+from launch.substitutions import LaunchConfiguration
 from ament_index_python.packages import get_package_share_directory
 from launch_ros.actions import Node
+
+
 
 
 def generate_launch_description():
@@ -59,19 +63,26 @@ def generate_launch_description():
     except Exception as e:
         print(f"WARNING: could not include point_lio launch: {e}")
 
-    # slam_toolbox: online_async_launch.py
+        # slam_toolbox: launch node directly with custom params and tf remaps
     try:
         pkg_gm = get_package_share_directory('slam_toolbox')
-        gmapping_launch = IncludeLaunchDescription(
-            PythonLaunchDescriptionSource(
-                os.path.join(pkg_gm, 'launch', 'online_async_launch.py')
-            ),
-            # pass use_sim_time=True as well to unify clocks
-            launch_arguments={'use_sim_time': use_sim_time}.items(),
+        # absolute path to your params file (use your path)
+        slam_params = '/home/mobimobi/thamyis/robot_TA_ws/src/all_launch/config/mapper_params_online_async.yaml'
+
+        slam_node = Node(
+            package='slam_toolbox',
+            executable='async_slam_toolbox_node',   # matches "ros2 run slam_toolbox async_slam_toolbox_node"
+            name='slam_toolbox',
+            output='screen',
+            parameters=[slam_params, {'use_sim_time': use_sim_time}],
+            # remappings=[
+            #     ('/tf', '/tf_slam'),
+            #     ('/tf_static', '/tf_static_slam'),
+            # ],
         )
-        ld.add_action(gmapping_launch)
+        ld.add_action(slam_node)
     except Exception as e:
-        print(f"WARNING: could not include slam_gmapping launch: {e}")
+        print(f"WARNING: could not create slam_toolbox node: {e}")
 
     # RViz2 node running with the Nav2 default view
     rviz_config = '/opt/ros/humble/share/nav2_bringup/rviz/nav2_default_view.rviz'

@@ -11,10 +11,6 @@ What it starts:
 
 Usage example:
   ros2 launch <your_package> ros2_combined_launch.py
-
-Note: This assumes the three packages (pointcloud_to_laserscan, point_lio, slam_gmapping)
-provide the referenced launch files under their "launch" directories. Adjust paths or
-launch file names if your installation differs.
 """
 
 import os
@@ -31,10 +27,20 @@ from launch_ros.actions import Node
 
 def generate_launch_description():
     ld = LaunchDescription()
-  # Declare launch arguments
+    # Declare launch arguments
     ld.add_action(DeclareLaunchArgument(
         'use_sim_time', default_value='False', description='Use simulation time'))
     use_sim_time = LaunchConfiguration('use_sim_time')
+
+    # --- Static transform: laser_frame -> base_link
+    static_tf_node = Node(
+        package='tf2_ros',
+        executable='static_transform_publisher',
+        name='laser_frame_to_base_link',
+        arguments=['-0.24', '0', '0', '0', '0', '0', 'laser_frame', 'base_link'],
+        output='screen'
+    )
+    ld.add_action(static_tf_node)
 
     # pointcloud_to_laserscan: sample_pointcloud_to_laserscan_launch.py
     try:
@@ -63,7 +69,7 @@ def generate_launch_description():
     except Exception as e:
         print(f"WARNING: could not include point_lio launch: {e}")
 
-        # slam_toolbox: launch node directly with custom params and tf remaps
+    # slam_toolbox: launch node directly with custom params and tf remaps
     try:
         pkg_gm = get_package_share_directory('slam_toolbox')
         # absolute path to your params file (use your path)

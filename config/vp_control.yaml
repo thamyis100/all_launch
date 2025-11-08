@@ -1,0 +1,23 @@
+velocity_smoother:
+  ros__parameters:
+    smoothing_frequency: 20.0   # Hz
+    scale_velocities: True
+
+    # Topic names
+    velocity_topic: cmd_vel_smoothed
+    raw_cmd_vel_topic: cmd_vel_raw
+
+    # Accel/Decel limits (tune these)
+    max_velocity: [0.6, 0.6, 2.0]       # [x, y, angular]
+    min_velocity: [-0.6, -0.6, -2.0]
+    max_accel: [0.3, 0.3, 1.5]
+    max_decel: [0.4, 0.4, 2.0]
+
+    # Type of model
+    robot_type: "omnidirectional"   # or "differential"
+
+    # Safety & behavior
+    odom_topic: /odom
+    enable_odom_feedback: True
+    use_stamped_vel: False
+    feedback_type: "open_loop"

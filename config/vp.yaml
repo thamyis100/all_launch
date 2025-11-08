@@ -1,0 +1,26 @@
+# vp_controller.yaml
+controller_server:
+  ros__parameters:
+    use_sim_time: false
+    controller_frequency: 20.0
+    progress_checker_plugin: "progress_checker"
+    goal_checker_plugins: ["goal_checker"]
+    controller_plugins: ["VP"]
+
+    progress_checker:
+      plugin: "nav2_controller::SimpleProgressChecker"
+      required_movement_radius: 0.05
+      movement_time_allowance: 15.0
+
+    goal_checker:
+      plugin: "nav2_controller::SimpleGoalChecker"
+      xy_goal_tolerance: 0.05
+      yaw_goal_tolerance: 0.3
+      stateful: true
+
+    VP:
+      plugin: "nav2_velocity_smoother::VelocitySmoother"
+      smoothing_frequency: 10.0
+      acceleration_limits: [2.0, 2.0, 3.0]
+      deceleration_limits: [2.0, 2.0, 3.0]
+      max_velocity: [0.6, 0.6, 1.0]

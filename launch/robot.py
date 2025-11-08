@@ -27,24 +27,24 @@ def generate_launch_description():
         'use_sim_time', default_value='False', description='Use simulation time'))
 
     ld.add_action(DeclareLaunchArgument(
-        'params_file', default_value='/home/mobimobi/thamyis/robot_TA_ws/src/all_launch/config/nav2_params_yoga.yaml',
+        'params_file', default_value='/home/mobimobi/thamyis/robot_TA_ws/src/all_launch/config/nav2_params_new_yoga.yaml',
         description='Full path to Nav2 params file'))
 
     use_sim_time = LaunchConfiguration('use_sim_time')
     params_file = LaunchConfiguration('params_file')
 
-    # Include the Nav2 bringup navigation_launch.py and forward params_file + use_sim_time
-    try:
-        nav2_pkg = get_package_share_directory('nav2_bringup')
-        nav2_launch_path = os.path.join(nav2_pkg, 'launch', 'navigation_launch.py')
-        nav2_include = IncludeLaunchDescription(
-            PythonLaunchDescriptionSource(nav2_launch_path),
-            launch_arguments={'params_file': params_file, 'use_sim_time': use_sim_time}.items()
-        )
-        ld.add_action(nav2_include)
-    except Exception as e:
-        # if nav2_bringup package not found, include nothing but keep other nodes runnable
-        print(f"WARNING: could not include nav2_bringup navigation_launch.py: {e}")
+    # # Include the Nav2 bringup navigation_launch.py and forward params_file + use_sim_time
+    # try:
+    #     nav2_pkg = get_package_share_directory('nav2_bringup')
+    #     nav2_launch_path = os.path.join(nav2_pkg, 'launch', 'navigation_launch.py')
+    #     nav2_include = IncludeLaunchDescription(
+    #         PythonLaunchDescriptionSource(nav2_launch_path),
+    #         launch_arguments={'params_file': params_file, 'use_sim_time': use_sim_time}.items()
+    #     )
+    #     ld.add_action(nav2_include)
+    # except Exception as e:
+    #     # if nav2_bringup package not found, include nothing but keep other nodes runnable
+    #     print(f"WARNING: could not include nav2_bringup navigation_launch.py: {e}")
 
     # robot nodes
     controller = Node(

@@ -1,0 +1,72 @@
+controller_server:
+  ros__parameters:
+    use_sim_time: True
+    controller_frequency: 20.0
+    controller_plugins: ["FollowPath"]
+
+    FollowPath:
+      # Regulated Pure Pursuit controller (RPP)
+      plugin: "nav2_regulated_pure_pursuit_controller::RegulatedPurePursuitController"
+      debug_trajectory_details: True
+      publish_evaluation: true
+      publish_trajectories: true
+      publish_cost_grid_pc: true
+      marker_lifetime: 0.3
+
+      # Kinematic limits
+      min_vel_x: 0.0
+      min_vel_y: 0.0
+      max_vel_x: 0.26
+      max_vel_y: 0.26         # changed -> omni lateral enabled (matches max_vel_x)
+      max_vel_theta: 1.0     # capped to your stated peak angular speed
+
+      # Speed ranges used to compute combined speed limits
+      min_speed_xy: 0.0
+      max_speed_xy: 0.26
+      min_speed_theta: 0.0
+
+      # Acceleration limits
+      acc_lim_x: 2.5
+      acc_lim_y: 0.0
+      acc_lim_theta: 5.5
+      decel_lim_x: -5.5
+      decel_lim_y: 0.0
+      decel_lim_theta: -3.2
+
+      # Sampling & simulation
+      vx_samples: 20
+      vy_samples: 20          # increased for omni (sample lateral velocities too)
+      vtheta_samples: 90
+      sim_time: 0.6
+      linear_granularity: 0.03
+      angular_granularity: 0.09
+      # angular_granularity: 0.015
+      transform_tolerance: 0.2
+
+      # Goal & stopping
+      xy_goal_tolerance: 0.25
+      trans_stopped_velocity: 0.1
+
+      # Performance / safety
+      short_circuit_trajectory_evaluation: True
+      stateful: True
+
+      # Critics (kept as you provided)
+      critics: ["RotateToGoal", "Oscillation", "ObstacleFootprint", "BaseObstacle", "GoalAlign", "PathAlign", "PathDist", "GoalDist"]
+
+      # Critic parameters
+      BaseObstacle.scale: 0.5
+      ObstacleFootprint.scale: 1.0
+
+      PathAlign.scale: 6.0
+      PathAlign.forward_point_distance: 0.12
+
+      GoalAlign.scale: 9.0
+      GoalAlign.forward_point_distance: 0.1
+
+      PathDist.scale: 18.0
+      GoalDist.scale: 10.0
+
+      RotateToGoal.scale: 24.0
+      RotateToGoal.slowing_factor: 3.0
+      RotateToGoal.lookahead_time: -1.0

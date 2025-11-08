@@ -25,7 +25,7 @@ controller_server:
       plugin: "dwb_core::DWBLocalPlanner"
       debug_trajectory_details: true
 
-      # Holonomic limits (match old working config for omni)
+      # Holonomic limits
       min_vel_x: -0.6
       min_vel_y: -0.6
       min_vel_theta: -1.0
@@ -35,10 +35,10 @@ controller_server:
 
       min_speed_xy: 0.0
       max_speed_xy: 0.6
-      min_speed_theta: 0.0
+      min_speed_theta: 0.01    # allow small rotational speeds while moving
       max_speed_theta: 1.0
 
-      # Accels (keep new slightly larger if needed)
+      # Accels
       acc_lim_x: 2.0
       acc_lim_y: 2.0
       acc_lim_theta: 1.5
@@ -47,9 +47,9 @@ controller_server:
       decel_lim_theta: -1.5
 
       # Sampling / sim
-      vx_samples: 15
+      vx_samples: 21
       vy_samples: 41
-      vtheta_samples: 15
+      vtheta_samples: 21
       sim_time: 1.5
       linear_granularity: 0.025
       angular_granularity: 0.025
@@ -60,23 +60,100 @@ controller_server:
       short_circuit_trajectory_evaluation: true
       stateful: true
 
-      # DWB critics — restore RotateToGoal and Oscillation like the old working file
-      critics: ["RotateToGoal","Oscillation","ObstacleFootprint","GoalAlign","PathAlign","PathDist","GoalDist"]
+      # debug publishers (optional; helps tune further)
+      publish_evaluation: true
+      publish_local_plan: true
+      publish_transformed_plan: true
+      publish_trajectories: true
 
+      # critics (keep core set) and tuned weights for blended rotation
+      critics: ["Oscillation","ObstacleFootprint","PathAlign","PathDist","GoalAlign","GoalDist","RotateToGoal"]
+
+      # critic tuning — reduce the very-strong forward/goal pull and allow smooth rotation
       ObstacleFootprint.scale: 0.12
-      PathAlign.scale: 0.0
+      Oscillation.scale: 0.3
+
+      PathAlign.scale: 1.5
       PathAlign.forward_point_distance: 0.08
-      PathDist.scale: 0.0
-      GoalAlign.scale: 0.0
+
+      PathDist.scale: 1.5
+
+      GoalAlign.scale: 2.0
       GoalAlign.forward_point_distance: 0.08
-      GoalDist.scale: 24.0
-      RotateToGoal.scale: 0.0
-      RotateToGoal.slowing_factor: 4.5
-      RotateToGoal.lookahead_time: -1.0
-      Oscillation.scale: 0.0
-      Oscillation.oscillation_reset_dist: 0.06
-      Oscillation.oscillation_reset_angle: 0.15
-      Oscillation.oscillation_reset_time: 2.0
+
+      GoalDist.scale: 0.5        # gentle pull to goal position
+
+      # RotateToGoal: small but non-zero scale and positive lookahead_time so rotation
+      # is blended into motion (not forced as in-place spin).
+      RotateToGoal.scale: 1.5
+      RotateToGoal.slowing_factor: 3.0
+      RotateToGoal.lookahead_time: 0.6
+
+      # ensure lateral sampling allowed both directions
+      min_vel_y: -0.6
+      max_vel_y: 0.6
+      vy_samples: 41
+      vtheta_samples: 21
+
+    # Previous working config for omni robot (for reference)
+    # FollowPath:
+    #   plugin: "dwb_core::DWBLocalPlanner"
+    #   debug_trajectory_details: true
+
+    #   # Holonomic limits (match old working config for omni)
+    #   min_vel_x: -0.6
+    #   min_vel_y: -0.6
+    #   min_vel_theta: -1.0
+    #   max_vel_x: 0.6
+    #   max_vel_y: 0.6
+    #   max_vel_theta: 1.0
+
+    #   min_speed_xy: 0.0
+    #   max_speed_xy: 0.6
+    #   min_speed_theta: 0.01
+    #   max_speed_theta: 1.0
+
+    #   # Accels (keep new slightly larger if needed)
+    #   acc_lim_x: 2.0
+    #   acc_lim_y: 2.0
+    #   acc_lim_theta: 1.5
+    #   decel_lim_x: -2.0
+    #   decel_lim_y: -2.0
+    #   decel_lim_theta: -1.5
+
+    #   # Sampling / sim
+    #   vx_samples: 15
+    #   vy_samples: 15
+    #   vtheta_samples: 15
+    #   sim_time: 1.5
+    #   linear_granularity: 0.025
+    #   angular_granularity: 0.025
+    #   transform_tolerance: 0.2
+
+    #   xy_goal_tolerance: 0.2
+    #   trans_stopped_velocity: 0.05
+    #   short_circuit_trajectory_evaluation: true
+    #   stateful: true
+
+    #   # DWB critics — restore RotateToGoal and Oscillation like the old working file
+    #   critics: ["RotateToGoal","Oscillation","ObstacleFootprint","GoalAlign","PathAlign","PathDist","GoalDist", "Twirling"]
+
+    #   TwirlingCritic:
+    #     cost_weight: 1.0
+    #   ObstacleFootprint.scale: 0.12
+    #   PathAlign.scale: 14.0
+    #   PathAlign.forward_point_distance: 0.08
+    #   PathDist.scale: 16.0
+    #   GoalAlign.scale: 24.0
+    #   GoalAlign.forward_point_distance: 0.08
+    #   GoalDist.scale: 24.0
+    #   RotateToGoal.scale: 0.0
+    #   RotateToGoal.slowing_factor: 4.5
+    #   RotateToGoal.lookahead_time: -1.0
+    #   Oscillation.scale: 0.3
+    #   Oscillation.oscillation_reset_dist: 0.06
+    #   Oscillation.oscillation_reset_angle: 0.15
+    #   Oscillation.oscillation_reset_time: 2.0
 
 
 planner_server:
@@ -88,6 +165,20 @@ planner_server:
       allow_unknown: true
       costmap_downsampling: 2
       max_iterations: 50000
-      # optional: tune these if required for performance
       max_planning_time: 1.0
       allow_initial_traversal: false
+
+velocity_smoother:
+  ros__parameters:
+    use_sim_time: False
+    smoothing_frequency: 20.0
+    scale_velocities: False
+    feedback: "OPEN_LOOP"
+    max_velocity: [0.6, 0.6, 1.0]
+    min_velocity: [-0.6, -0.6, -1.0]
+    max_accel: [2.5, 2.5, 3.2]
+    max_decel: [-2.5, -2.5, -3.2]
+    odom_topic: "/odom"
+    odom_duration: 0.1
+    deadband_velocity: [0.0, 0.0, 0.0]
+    velocity_timeout: 1.0

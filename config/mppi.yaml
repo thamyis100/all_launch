@@ -54,7 +54,11 @@ controller_server:
       
       ObstaclesCritic:
         enabled: true
+<<<<<<< HEAD
         consider_footprint: false
+=======
+        consider_footprint: true
+>>>>>>> 8719e0f (update mppi)
         repulsion_weight: 1.2        # mulai 0.8–2.0, turunkan bila robot "takut" masuk koridor
         critical_weight: 25.0        # 15–30 umum; naikkan kalau masih berani mepet
         cost_power: 1
@@ -100,11 +104,20 @@ velocity_smoother:
     smoothing_frequency: 20.0
     scale_velocities: False
     feedback: "OPEN_LOOP"
+<<<<<<< HEAD
     max_velocity: [0.6, 0.6, 1.0]
     min_velocity: [-0.6, -0.6, -1.0]
+=======
+    max_velocity: [0.6, 0.2, 1.8]
+    min_velocity: [0.0, -0.2, -1.0]
+>>>>>>> 8719e0f (update mppi)
     max_accel: [2.5, 2.5, 3.2]
     max_decel: [-2.5, -2.5, -3.2]
     odom_topic: "/odom"
     odom_duration: 0.1
     deadband_velocity: [0.0, 0.0, 0.0]
+<<<<<<< HEAD
     velocity_timeout: 1.0
+=======
+    velocity_timeout: 1.0
+>>>>>>> 8719e0f (update mppi)

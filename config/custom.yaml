@@ -1,0 +1,88 @@
+controller_server:
+  ros__parameters:
+    controller_frequency: 20.0
+    min_x_velocity_threshold: 0.001
+    min_y_velocity_threshold: 0.001
+    min_theta_velocity_threshold: 0.001
+
+    # progress/goal checkers
+    progress_checker_plugins: ["progress_checker"]
+    goal_checker_plugins: ["goal_checker"]
+    controller_plugins: ["FollowPath"]   # keep "FollowPath" so the BT node finds the controller
+
+    progress_checker:
+      plugin: "nav2_controller::SimpleProgressChecker"
+      required_movement_radius: 0.5
+      movement_time_allowance: 10.0
+
+    goal_checker:
+      plugin: "nav2_controller::SimpleGoalChecker"
+      xy_goal_tolerance: 0.25
+      yaw_goal_tolerance: 0.25
+      stateful: True
+
+    # Use the custom controller plugin class here, but keep the key name "FollowPath"
+    FollowPath:
+      plugin: "spin_profile_controller/SpinProfileController"
+
+      # Basic motion tuning (match the params declared in the controller)
+      max_linear_speed: 0.6
+      max_angular_speed: 1.0
+      k_pos: 1.0
+      k_yaw: 2.0
+      lookahead_dist: 0.4
+      extra_spins: 0
+
+      # Yaw behaviour
+      use_robot_yaw_as_start: true   # start profile from robot's actual heading
+      yaw_deadband: 0.04             # rad, ignore tiny yaw errors
+      use_path_heading: false         # align with path tangent while moving
+      yaw_blend: 0.7                 # 0 = only start→goal interp, 1 = only path heading
+      rotation_direction: 0          # 0=shortest, 1=force CCW, -1=force CW
+
+      # Obstacle-aware slowdown (costmap sampling)
+      use_obstacle_slowdown: true
+      slowdown_cost_threshold: 128   # roughly INSCRIBED_INFLATED_OBSTACLE
+      slowdown_lookahead_dist: 1.0   # sample up to 1 m ahead
+      slowdown_full_speed_dist: 0.8  # >= 0.8 m -> full speed
+      slowdown_stop_dist: 0.2        # <= 0.2 m -> stop
+      slowdown_step: 0.1             # ray sampling step (m)
+
+
+planner_server:
+  ros__parameters:
+    planner_plugins: ["GridBased"]
+    GridBased:
+      plugin: "nav2_smac_planner/SmacPlanner2D"
+      use_holonomic_motion: true
+      allow_unknown: true
+      costmap_downsampling: 2
+      max_iterations: 50000
+      max_planning_time: 1.0
+      allow_initial_traversal: false
+
+# planner_server:
+#   ros__parameters:
+#     expected_planner_frequency: 20.0
+#     use_sim_time: False
+#     planner_plugins: ["GridBased"]
+#     GridBased:
+#       plugin: "nav2_navfn_planner/NavfnPlanner"
+#       tolerance: 0.5
+#       use_astar: false
+#       allow_unknown: true
+
+velocity_smoother:
+  ros__parameters:
+    use_sim_time: False
+    smoothing_frequency: 20.0
+    scale_velocities: False
+    feedback: "OPEN_LOOP"
+    max_velocity: [0.6, 0.6, 1.0]
+    min_velocity: [-0.6, -0.6, -1.0]
+    max_accel: [2.5, 2.5, 3.2]
+    max_decel: [-2.5, -2.5, -3.2]
+    odom_topic: "/odom"
+    odom_duration: 0.1
+    deadband_velocity: [0.0, 0.0, 0.0]
+    velocity_timeout: 1.0

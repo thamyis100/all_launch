@@ -67,7 +67,7 @@ controller_server:
       publish_trajectories: true
 
       # critics (keep core set) and tuned weights for blended rotation
-      critics: ["Oscillation","ObstacleFootprint","PathAlign","PathDist","GoalAlign","GoalDist","RotateToGoal"]
+      # critics: ["Oscillation","ObstacleFootprint","PathAlign","PathDist","GoalAlign","GoalDist","RotateToGoal"]
 
       # critic tuning — reduce the very-strong forward/goal pull and allow smooth rotation
       ObstacleFootprint.scale: 0.12

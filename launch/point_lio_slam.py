@@ -29,7 +29,7 @@ def generate_launch_description():
     ld = LaunchDescription()
     # Declare launch arguments
     ld.add_action(DeclareLaunchArgument(
-        'use_sim_time', default_value='False', description='Use simulation time'))
+        'use_sim_time', default_value='false', description='Use simulation time'))
     use_sim_time = LaunchConfiguration('use_sim_time')
 
     # --- Static transform: laser_frame -> base_link
@@ -38,6 +38,7 @@ def generate_launch_description():
         executable='static_transform_publisher',
         name='laser_frame_to_base_link',
         arguments=['-0.24', '0', '0', '0', '0', '0', 'laser_frame', 'base_link'],
+        parameters=[{'use_sim_time': use_sim_time}],
         output='screen'
     )
     ld.add_action(static_tf_node)
@@ -91,7 +92,7 @@ def generate_launch_description():
         print(f"WARNING: could not create slam_toolbox node: {e}")
 
     # RViz2 node running with the Nav2 default view
-    rviz_config = '/opt/ros/humble/share/nav2_bringup/rviz/nav2_default_view.rviz'
+    rviz_config = '/home/mobimobi/thamyis/robot_TA_ws/person.rviz'
     rviz_node = Node(
         package='rviz2',
         executable='rviz2',

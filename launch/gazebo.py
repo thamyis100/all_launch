@@ -32,43 +32,16 @@ def generate_launch_description():
         'use_sim_time', default_value='false', description='Use simulation time'))
     use_sim_time = LaunchConfiguration('use_sim_time')
 
-    # --- Static transform: laser_frame -> base_link
-    static_tf_node = Node(
-        package='tf2_ros',
-        executable='static_transform_publisher',
-        name='laser_frame_to_base_link',
-        arguments=['-0.24', '0', '0', '0', '0', '0', 'laser_frame', 'base_link'],
-        parameters=[{'use_sim_time': use_sim_time}],
-        output='screen'
-    )
-    ld.add_action(static_tf_node)
-
-    # pointcloud_to_laserscan: sample_pointcloud_to_laserscan_launch.py
-    try:
-        pkg_p2l = get_package_share_directory('pointcloud_to_laserscan')
-        p2l_launch = IncludeLaunchDescription(
-            PythonLaunchDescriptionSource(
-                os.path.join(pkg_p2l, 'launch', 'sample_pointcloud_to_laserscan_launch.py')
-            ),
-            launch_arguments={'use_sim_time': use_sim_time}.items(),
-        )
-        ld.add_action(p2l_launch)
-    except Exception as e:
-        # if package / launch not found, still continue so user can see error on screen
-        print(f"WARNING: could not include pointcloud_to_laserscan launch: {e}")
-
-    # point_lio: mapping_mid360.launch.py
-    try:
-        pkg_point_lio = get_package_share_directory('point_lio')
-        point_lio_launch = IncludeLaunchDescription(
-            PythonLaunchDescriptionSource(
-                os.path.join(pkg_point_lio, 'launch', 'mapping_mid360.launch.py')
-            ),
-            launch_arguments={'use_sim_time': use_sim_time}.items(),
-        )
-        ld.add_action(point_lio_launch)
-    except Exception as e:
-        print(f"WARNING: could not include point_lio launch: {e}")
+    # # --- Static transform: laser_frame -> base_link
+    # static_tf_node = Node(
+    #     package='tf2_ros',
+    #     executable='static_transform_publisher',
+    #     name='laser_frame_to_base_link',
+    #     arguments=['-0.24', '0', '0', '0', '0', '0', 'laser_frame', 'base_link'],
+    #     parameters=[{'use_sim_time': use_sim_time}],
+    #     output='screen'
+    # )
+    # ld.add_action(static_tf_node)
 
     # slam_toolbox: launch node directly with custom params and tf remaps
     try:

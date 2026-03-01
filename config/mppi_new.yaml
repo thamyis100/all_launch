@@ -1,0 +1,408 @@
+# # nav2_mppi_mecanum.yaml
+controller_server:
+  ros__parameters:
+    use_sim_time: false
+    odom_topic: "/odom"
+    controller_frequency: 20.0
+
+    min_x_velocity_threshold: 0.001
+    min_y_velocity_threshold: 0.001
+    min_theta_velocity_threshold: 0.001
+    failure_tolerance: 1.0
+
+    progress_checker_plugin: "progress_checker"
+    goal_checker_plugins: ["general_goal_checker"]
+    controller_plugins: ["FollowPath", "FollowPathDiff"]
+
+    progress_checker:
+      plugin: "nav2_controller::SimpleProgressChecker"
+      required_movement_radius: 0.10
+      movement_time_allowance: 25.0
+
+    general_goal_checker:
+      plugin: "nav2_controller::SimpleGoalChecker"
+      xy_goal_tolerance: 0.15
+      yaw_goal_tolerance: 0.15
+      stateful: true
+
+    FollowPath:
+      plugin: "nav2_mppi_controller::MPPIController"
+
+      # --- Core MPPI params ---
+      motion_model: Omni
+      iteration_count: 1          # recommended to keep 1 and use batch_size instead :contentReference[oaicite:1]{index=1}
+      batch_size: 1500
+      time_steps: 40
+      model_dt: 0.05
+      prune_distance: 2.0
+
+      # Selectiveness (lower = more decisive toward best trajectories) :contentReference[oaicite:2]{index=2}
+      temperature: 0.18
+      gamma: 0.015                # default smoothness/energy tradeoff :contentReference[oaicite:3]{index=3}
+
+      # Reduce run-time compute jitter from resampling noises :contentReference[oaicite:4]{index=4}
+      regenerate_noises: false
+
+      # Humble-only: reset optimizer after inactivity :contentReference[oaicite:5]{index=5}
+      reset_period: 1.0
+      retry_attempt_limit: 1
+
+ # --- Command limits (targets) ---
+      vx_max: 1.0
+      vx_min: -0.20       # limit reversing to reduce indecision (more "straight forward")
+      vy_max: 1.0
+      wz_max: 1.8
+
+      # --- Sampling std devs (too high => dithering/hesitation) ---
+      vx_std: 0.20
+      vy_std: 0.18
+      wz_std: 0.45
+
+      # --- Accel limits ---
+      ax_max: 2.5
+      ax_min: -2.5
+      ay_max: 2.5
+      ay_min: -2.5
+      az_max: 3.2
+
+      # Debug (leave off for smooth runtime; debug pub can be heavy) :contentReference[oaicite:6]{index=6}
+      visualize: false
+      publish_optimal_trajectory: false
+      publish_critics_stats: false
+
+      # --- Critics ---
+      # Notes:
+      # - PathFollowCritic DISABLES itself near goal (within threshold_to_consider) :contentReference[oaicite:7]{index=7}
+      # - PreferForwardCritic DISABLES itself near goal (within threshold_to_consider) :contentReference[oaicite:8]{index=8}
+      # - GoalAngleCritic ENABLES itself near goal (within threshold_to_consider) :contentReference[oaicite:9]{index=9}
+      # - VelocityDeadbandCritic penalizes tiny velocities that cause stop-go hesitation :contentReference[oaicite:10]{index=10}
+      critics:
+        [
+          "ObstaclesCritic",
+          "PathFollowCritic",
+          "PathAngleCritic",
+          "PreferForwardCritic",
+          "GoalCritic",
+          "GoalAngleCritic",
+          "VelocityDeadbandCritic",
+          "TwirlingCritic"
+        ]
+
+      ObstaclesCritic:
+        enabled: true
+        consider_footprint: false
+        repulsion_weight: 1.1
+        critical_weight: 25.0
+        cost_power: 1
+        collision_cost: 100000.0
+        collision_margin_distance: 0.15
+        cost_scaling_factor: 2.5
+
+      # Follow the path when far; stop forcing path-tracking near goal so it can settle
+      PathFollowCritic:
+        enabled: true
+        cost_weight: 5.0
+        cost_power: 1
+        threshold_to_consider: 1.4
+        offset_from_furthest: 6
+
+      # Keep robot generally aligned with path direction (less sideways/crabbing far away)
+      PathAngleCritic:
+        enabled: true
+        mode: 0
+        cost_weight: 2.5
+
+      # Prefer forward motion when far; turn off very near goal so final alignment isn't blocked
+      PreferForwardCritic:
+        enabled: true
+        cost_weight: 5.0
+        threshold_to_consider: 2.0
+
+      # Pull to goal position when approaching
+      GoalCritic:
+        enabled: true
+        cost_power: 1
+        cost_weight: 5.0
+        threshold_to_consider: 2.0
+
+      # MAIN BEHAVIOR: within 2m, start blending rotation toward goal yaw while still moving :contentReference[oaicite:11]{index=11}
+      GoalAngleCritic:
+        enabled: true
+        cost_weight: 3.0
+        threshold_to_consider: 2.0
+
+      # Anti-hesitation: penalize tiny commands (stop-go / dithering) :contentReference[oaicite:12]{index=12}
+      VelocityDeadbandCritic:
+        enabled: true
+        cost_weight: 30.0
+        cost_power: 1
+        deadband_velocities: [0.03, 0.00, 0.06]   # [vx, vy, wz] for holonomic
+
+      TwirlingCritic:
+        cost_weight: 2.0
+
+    FollowPathDiff:
+      plugin: "nav2_mppi_controller::MPPIController"
+      time_steps: 56
+      model_dt: 0.05
+      batch_size: 2000
+      vx_std: 0.2
+      vy_std: 0.2
+      wz_std: 0.4
+      vx_max: 1.0
+      vx_min: -0.2
+      vy_max: 0.0
+      wz_max: 1.9
+      ax_max: 3.0
+      ax_min: -3.0
+      ay_min: -3.0
+      ay_max: 3.0
+      az_max: 3.5
+      iteration_count: 1
+      temperature: 0.3
+      gamma: 0.015
+      motion_model: "DiffDrive"
+      visualize: false
+      reset_period: 1.0 # (only in Humble)
+      regenerate_noises: false
+      TrajectoryVisualizer:
+        trajectory_step: 5
+        time_step: 3
+      TrajectoryValidator:
+        plugin: "mppi::DefaultOptimalTrajectoryValidator"
+        collision_lookahead_time: 2.0
+        consider_footprint: false
+      AckermannConstraints:
+        min_turning_r: 0.2
+      critics: ["ConstraintCritic", "CostCritic", "GoalCritic", "GoalAngleCritic", "PathAlignCritic", "PathFollowCritic", "PathAngleCritic", "PreferForwardCritic"]
+      ConstraintCritic:
+        enabled: true
+        cost_power: 1
+        cost_weight: 4.0
+      GoalCritic:
+        enabled: true
+        cost_power: 1
+        cost_weight: 5.0
+        threshold_to_consider: 1.4
+      GoalAngleCritic:
+        enabled: true
+        cost_power: 1
+        cost_weight: 3.0
+        threshold_to_consider: 0.5
+      PreferForwardCritic:
+        enabled: true
+        cost_power: 1
+        cost_weight: 5.0
+        threshold_to_consider: 0.5
+      # ObstaclesCritic:
+      #   enabled: true
+      #   cost_power: 1
+      #   repulsion_weight: 1.5
+      #   critical_weight: 20.0
+      #   consider_footprint: false
+      #   collision_cost: 10000.0
+      #   collision_margin_distance: 0.1
+      #   near_goal_distance: 0.5
+      #   inflation_radius: 0.55 # (only in Humble)
+      #   cost_scaling_factor: 10.0 # (only in Humble)
+      CostCritic:
+        enabled: true
+        cost_power: 1
+        cost_weight: 3.81
+        critical_cost: 300.0
+        consider_footprint: false
+        collision_cost: 1000000.0
+        near_goal_distance: 1.0
+        trajectory_point_step: 2
+      PathAlignCritic:
+        enabled: true
+        cost_power: 1
+        cost_weight: 14.0
+        max_path_occupancy_ratio: 0.05
+        trajectory_point_step: 4
+        threshold_to_consider: 0.5
+        offset_from_furthest: 20
+        use_path_orientations: false
+      PathFollowCritic:
+        enabled: true
+        cost_power: 1
+        cost_weight: 5.0
+        offset_from_furthest: 5
+        threshold_to_consider: 1.4
+      PathAngleCritic:
+        enabled: true
+        cost_power: 1
+        cost_weight: 2.0
+        offset_from_furthest: 4
+        threshold_to_consider: 0.5
+        max_angle_to_furthest: 1.0
+        mode: 0
+
+global_costmap:
+  global_costmap:
+    ros__parameters:
+      footprint_padding: 0.03
+      update_frequency: 1.0
+      publish_frequency: 1.0
+      transform_tolerance: 0.1
+      global_frame: map
+      robot_base_frame: base_link
+      robot_radius: 0.3 # radius set and used, so no footprint points
+      resolution: 0.05
+      plugins: ["static_layer", "obstacle_layer", "voxel_layer", "inflation_layer"]
+      obstacle_layer:
+        plugin: "nav2_costmap_2d::ObstacleLayer"
+        enabled: True
+        observation_sources: scan
+        footprint_clearing_enabled: true
+        max_obstacle_height: 2.0
+        combination_method: 1
+        scan:
+          topic: /scan
+          obstacle_max_range: 2.5
+          obstacle_min_range: 0.0
+          raytrace_max_range: 3.0
+          raytrace_min_range: 0.0
+          max_obstacle_height: 2.0
+          min_obstacle_height: 0.0
+          clearing: True
+          marking: True
+          data_type: "LaserScan"
+          inf_is_valid: false
+      voxel_layer:
+        plugin: "nav2_costmap_2d::VoxelLayer"
+        enabled: True
+        footprint_clearing_enabled: true
+        max_obstacle_height: 2.0
+        publish_voxel_map: True
+        origin_z: 0.0
+        z_resolution: 0.05
+        z_voxels: 16
+        unknown_threshold: 15
+        mark_threshold: 0
+        observation_sources: pointcloud
+        combination_method: 1
+        pointcloud:  # no frame set, uses frame from message
+          topic: /intel_realsense_r200_depth/points
+          max_obstacle_height: 2.0
+          min_obstacle_height: 0.0
+          obstacle_max_range: 2.5
+          obstacle_min_range: 0.0
+          raytrace_max_range: 3.0
+          raytrace_min_range: 0.0
+          clearing: True
+          marking: True
+          data_type: "PointCloud2"
+          transport_type: "raw"  # raw or/ with compression (zlib, draco, zstd)
+      static_layer:
+        plugin: "nav2_costmap_2d::StaticLayer"
+        map_subscribe_transient_local: True
+        enabled: true
+        subscribe_to_updates: true
+      inflation_layer:
+        plugin: "nav2_costmap_2d::InflationLayer"
+        enabled: true
+        inflation_radius: 0.7
+        cost_scaling_factor: 1.0
+        inflate_unknown: false
+        inflate_around_unknown: true
+      always_send_full_costmap: True
+      introspection_mode: "disabled"
+
+
+local_costmap:
+  local_costmap:
+    ros__parameters:
+      update_frequency: 5.0
+      publish_frequency: 2.0
+      global_frame: odom
+      robot_base_frame: base_link
+      rolling_window: true
+      width: 3
+      height: 3
+      resolution: 0.05
+      introspection_mode: "disabled"
+
+bt_navigator:
+  ros__parameters:
+    default_nav_to_pose_bt_xml: "/home/thamyis/SLAM_ws/src/all_launch/config/omni_diff_omni.xml"
+    # default_nav_through_poses_bt_xml: "/home/thamyis/SLAM_ws/src/all_launch/config/omni_diff_omni_through.xml"
+    goal_reached_tol: 2.0
+
+    # IMPORTANT: bt_navigator only recognizes nodes from libs listed here
+    plugin_lib_names:
+      - nav2_compute_path_to_pose_action_bt_node
+      - nav2_compute_path_through_poses_action_bt_node
+      - nav2_smooth_path_action_bt_node
+      - nav2_follow_path_action_bt_node
+      - nav2_spin_action_bt_node
+      - nav2_wait_action_bt_node
+      - nav2_assisted_teleop_action_bt_node
+      - nav2_back_up_action_bt_node
+      - nav2_drive_on_heading_bt_node
+      - nav2_clear_costmap_service_bt_node
+      - nav2_is_stuck_condition_bt_node
+      - nav2_goal_reached_condition_bt_node
+      - nav2_goal_updated_condition_bt_node
+      - nav2_globally_updated_goal_condition_bt_node
+      - nav2_is_path_valid_condition_bt_node
+      - nav2_initial_pose_received_condition_bt_node
+      - nav2_reinitialize_global_localization_service_bt_node
+      - nav2_rate_controller_bt_node           # <-- REQUIRED for RateController
+      - nav2_distance_controller_bt_node
+      - nav2_speed_controller_bt_node
+      - nav2_truncate_path_action_bt_node
+      - nav2_truncate_path_local_action_bt_node
+      - nav2_goal_updater_node_bt_node
+      - nav2_recovery_node_bt_node
+      - nav2_pipeline_sequence_bt_node
+      - nav2_round_robin_node_bt_node
+      - nav2_transform_available_condition_bt_node
+      - nav2_time_expired_condition_bt_node
+      - nav2_path_expiring_timer_condition     # <-- Humble name (no _bt_node)
+      - nav2_distance_traveled_condition_bt_node
+      - nav2_single_trigger_bt_node
+      - nav2_goal_updated_controller_bt_node
+      - nav2_is_battery_low_condition_bt_node
+      - nav2_navigate_through_poses_action_bt_node
+      - nav2_navigate_to_pose_action_bt_node
+      - nav2_remove_passed_goals_action_bt_node
+      - nav2_planner_selector_bt_node
+      - nav2_controller_selector_bt_node
+      - nav2_goal_checker_selector_bt_node
+      - nav2_controller_cancel_bt_node
+      - nav2_path_longer_on_approach_bt_node
+      - nav2_wait_cancel_bt_node
+      - nav2_spin_cancel_bt_node
+      - nav2_back_up_cancel_bt_node
+      - nav2_assisted_teleop_cancel_bt_node
+      - nav2_drive_on_heading_cancel_bt_node
+      - nav2_is_battery_charging_condition_bt_node
+
+planner_server:
+  ros__parameters:
+    planner_plugins: ["GridBased"]
+    GridBased:
+      plugin: "nav2_smac_planner/SmacPlanner2D"
+      use_holonomic_motion: true
+      allow_unknown: true
+      costmap_downsampling: 2
+      max_iterations: 50000
+      max_planning_time: 1.0
+      allow_initial_traversal: false
+
+
+velocity_smoother:
+  ros__parameters:
+    use_sim_time: false
+    smoothing_frequency: 20.0
+    scale_velocities: false
+    feedback: "OPEN_LOOP"
+    max_velocity: [1.0, 1.0, 1.8]
+    min_velocity: [-1.0, -1.0, -1.8]
+    max_accel: [2.5, 2.5, 3.2]
+    max_decel: [-2.5, -2.5, -3.2]
+    odom_topic: "/odom"
+    odom_duration: 0.1
+    deadband_velocity: [0.0, 0.0, 0.0]
+    velocity_timeout: 1.0

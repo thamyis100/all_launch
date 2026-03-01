@@ -1,0 +1,35 @@
+<root main_tree_to_execute="MainTree">
+  <BehaviorTree ID="MainTree">
+    <RecoveryNode number_of_retries="8" name="NavigateRecovery">
+      <PipelineSequence name="NavigateWithReplanning">
+        <RateController hz="2.0">
+          <ComputePathToPose goal="{goal}" path="{path}" planner_id="GridBased"/>
+        </RateController>
+        <FollowPath path="{path}" controller_id="FollowPath"/>
+      </PipelineSequence>
+
+      <!-- Recovery actions -->
+      <RoundRobin name="RecoveryActions">
+
+        <!-- 1) Clear local costmap first (important if footprint is inside inflated obstacles) -->
+        <ClearEntireCostmap name="ClearLocalCostmap" service_name="local_costmap/clear_entirely_local_costmap"/>
+
+        <!-- 2) Spin in place: ONLY angular.z -->
+        <Spin name="SpinToUnstick" spin_dist="1.57" time_allowance="10.0"/>
+
+        <!-- 3) Creep forward slowly a short distance -->
+        <DriveOnHeading name="CreepForward"
+                        speed="0.05"
+                        distance="0.25"
+                        time_allowance="8.0"/>
+
+        <!-- 4) Clear again, then retry -->
+        <ClearEntireCostmap name="ClearLocalCostmap2" service_name="local_costmap/clear_entirely_local_costmap"/>
+
+        <!-- Optional fallback if still stuck -->
+        <!-- <BackUp name="BackUpSmall" backup_dist="0.15" backup_speed="0.05" time_allowance="6.0"/> -->
+
+      </RoundRobin>
+    </RecoveryNode>
+  </BehaviorTree>
+</root>

@@ -24,7 +24,7 @@ controller_server:
     # Use the custom controller plugin class here, but keep the key name "FollowPath"
     FollowPath:
       plugin: "spin_profile_controller/SpinProfileController"
-
+      # plugin: "social_force_window_planner::SFWPlannerNode"
       # Basic motion tuning (match the params declared in the controller)
       max_linear_speed: 0.6
       max_angular_speed: 1.0

@@ -1,122 +1,202 @@
-# Controller server using rotation shim to pre-align robot to path heading
+# nav2_mppi_mecanum.yaml  (fixed, NO custom BT XML)
+
 controller_server:
   ros__parameters:
+    use_sim_time: false
     odom_topic: "/odom"
-    use_sim_time: False
+
+    # MUST match model_dt below: period = 1/20 = 0.05s
     controller_frequency: 20.0
-    min_x_velocity_threshold: 0.001
-    min_y_velocity_threshold: 0.001
-    min_theta_velocity_threshold: 0.001
+
+    min_x_velocity_threshold: 0.01
+    min_y_velocity_threshold: 0.01
+    min_theta_velocity_threshold: 0.02
     failure_tolerance: 0.3
+
     progress_checker_plugin: "progress_checker"
     goal_checker_plugins: ["general_goal_checker"]
     controller_plugins: ["FollowPath"]
-    # Progress checker parameters
+    current_goal_checker: "general_goal_checker"
+    current_progress_checker: "progress_checker"
+
     progress_checker:
       plugin: "nav2_controller::SimpleProgressChecker"
-      required_movement_radius: 0.1
-      movement_time_allowance: 25.0
-    # Goal checker parameters
+      required_movement_radius: 0.10
+      movement_time_allowance: 35.0
+
     general_goal_checker:
       plugin: "nav2_controller::SimpleGoalChecker"
       xy_goal_tolerance: 0.15
       yaw_goal_tolerance: 0.15
-      stateful: True
-    # Use rotation shim controller to rotate robot towards path heading
+      stateful: true
+
     FollowPath:
       plugin: "nav2_mppi_controller::MPPIController"
-
-      # --- MPPI: robot holonomic ---
       motion_model: Omni
-      batch_size: 1500
-      time_steps: 40
-      model_dt: 0.05
-      temperature: 0.2
 
-      # Batas kecepatan (target) & sampling
-      vx_max: 0.6
-      vx_min: -0.2
-      vy_max: 0.6
+      # Keep iteration_count 1, reduce compute by lowering batch/time_steps
+      iteration_count: 1
+      batch_size: 900        # was 1500
+      time_steps: 30         # was 40
+      model_dt: 0.05         # MUST be >= controller period (0.05 at 20Hz)
+      prune_distance: 1.5
+
+      temperature: 0.22      # a bit less “twitchy” than 0.18 under load
+      gamma: 0.015
+      regenerate_noises: false
+      reset_period: 1.0
+      retry_attempt_limit: 2
+
+      vx_max: 1.0
+      vx_min: -1.0
+      vy_max: 1.0
       wz_max: 1.8
-      vx_std: 0.25
-      vy_std: 0.25
-      wz_std: 0.6
 
-      # Batas akselerasi
-      ax_max: 2.5
-      ax_min: -2.5
-      ay_max: 2.5
-      ay_min: -2.5
-      az_max: 3.2
+      vx_std: 0.18
+      vy_std: 0.16
+      wz_std: 0.35
 
-      # Kritic untuk arah & keamanan
-      critics: ["ObstaclesCritic", "PathFollowCritic", "PathAngleCritic", "GoalAngleCritic", "PreferForwardCritic", "TwirlingCritic", "GoalCritic"]
-      
+      ax_max: 1.8
+      ax_min: -1.8
+      ay_max: 1.8
+      ay_min: -1.8
+      az_max: 2.5
+
+      visualize: false
+      publish_optimal_trajectory: false
+      publish_critics_stats: false
+
+      critics: [
+        "ObstaclesCritic",
+        "PathFollowCritic",
+        "PathAngleCritic",
+        "PreferForwardCritic",
+        "GoalCritic",
+        "GoalAngleCritic",
+        "VelocityDeadbandCritic",
+        "TwirlingCritic"
+      ]
+
       ObstaclesCritic:
         enabled: true
         consider_footprint: false
-        repulsion_weight: 1.2        # mulai 0.8–2.0, turunkan bila robot "takut" masuk koridor
-        critical_weight: 25.0        # 15–30 umum; naikkan kalau masih berani mepet
+        repulsion_weight: 1.1
+        critical_weight: 25.0
         cost_power: 1
         collision_cost: 100000.0
-        collision_margin_distance: 0.15   # 0.10–0.15 pas untuk koridor ~0.65 m
-        # near_goal_distance: 0.5
+        collision_margin_distance: 0.15
         cost_scaling_factor: 2.5
+
       PathFollowCritic:
         enabled: true
         cost_weight: 5.0
+        cost_power: 1
+        threshold_to_consider: 1.4
+        offset_from_furthest: 6
+
       PathAngleCritic:
         enabled: true
-        mode: 0           # prefer gerak ke depan relatif ke path
-        cost_weight: 2.0
-      GoalAngleCritic:
-        enabled: true
-        cost_weight: 1.0
+        mode: 0
+        cost_weight: 2.5
+
       PreferForwardCritic:
         enabled: true
-        cost_weight: 5.0  # dorong gerak maju & hindari mundur/nyerong berlebihan
-      TwirlingCritic:
-        cost_weight: 1.0
+        cost_weight: 5.0
+        threshold_to_consider: 2.0
+
       GoalCritic:
         enabled: true
         cost_power: 1
         cost_weight: 5.0
-        threshold_to_consider: 1.4
+        threshold_to_consider: 2.0
+
+      GoalAngleCritic:
+        enabled: true
+        cost_weight: 3.0
+        threshold_to_consider: 2.0
+
+      VelocityDeadbandCritic:
+        enabled: true
+        cost_weight: 25.0
+        cost_power: 1
+        deadband_velocities: [0.05, 0.05, 0.08]
+
+      TwirlingCritic:
+        enabled: true
+        cost_weight: 2.0
+
 
 planner_server:
   ros__parameters:
-    expected_planner_frequency: 20.0
-    use_sim_time: False
+    use_sim_time: false
     planner_plugins: ["GridBased"]
     GridBased:
-      plugin: "nav2_navfn_planner/NavfnPlanner"
-      tolerance: 0.5
-      use_astar: false
+      plugin: "nav2_smac_planner/SmacPlanner2D"
+      use_holonomic_motion: true
       allow_unknown: true
+      costmap_downsampling: 2
+      max_iterations: 30000
+      max_planning_time: 2.0
+      allow_initial_traversal: false
 
-# planner_server:
-#   ros__parameters:
-#     planner_plugins: ["GridBased"]
-#     GridBased:
-#       plugin: "nav2_smac_planner/SmacPlanner2D"
-#       use_holonomic_motion: true
-#       allow_unknown: true
-#       costmap_downsampling: 2
-#       max_iterations: 50000
-#       max_planning_time: 1.0
-#       allow_initial_traversal: false
+
+# This is the best you can do WITHOUT editing BT XML:
+# slow the tick + make timeouts less aggressive globally
+bt_navigator:
+  ros__parameters:
+    use_sim_time: false
+    bt_loop_duration: 50          # was effectively 10ms (~100Hz). now ~20Hz.
+    default_server_timeout: 2000  # ms
+    default_cancel_timeout: 2000  # ms
+    wait_for_service_timeout: 5000
+
+
+behavior_server:
+  ros__parameters:
+    use_sim_time: false
+    cycle_frequency: 10.0
+
 
 velocity_smoother:
   ros__parameters:
-    use_sim_time: False
+    use_sim_time: false
     smoothing_frequency: 20.0
-    scale_velocities: False
+    scale_velocities: false
     feedback: "OPEN_LOOP"
-    max_velocity: [1.0, 1.0, 1.0]
-    min_velocity: [-1.0, -1.0, -1.0]
+    max_velocity: [1.0, 1.0, 1.8]
+    min_velocity: [-1.0, -1.0, -1.8]
     max_accel: [2.5, 2.5, 3.2]
     max_decel: [-2.5, -2.5, -3.2]
     odom_topic: "/odom"
     odom_duration: 0.1
     deadband_velocity: [0.0, 0.0, 0.0]
     velocity_timeout: 1.0
+
+
+# # IMPORTANT: your log shows local_costmap is using static_layer + /map.
+# # For local_costmap, remove static_layer and use odom + rolling window.
+# local_costmap:
+#   local_costmap:
+#     ros__parameters:
+#       use_sim_time: false
+#       global_frame: odom
+#       robot_base_frame: base_link
+#       rolling_window: true
+#       # width: 4.0
+#       # height: 4.0
+#       # resolution: 0.05
+
+#       plugins: ["obstacle_layer", "inflation_layer"]
+#       obstacle_layer:
+#         plugin: "nav2_costmap_2d::ObstacleLayer"
+#         observation_sources: scan
+#         scan:
+#           topic: /scan
+#           data_type: "LaserScan"
+#           clearing: true
+#           marking: true
+#       inflation_layer:
+#         plugin: "nav2_costmap_2d::InflationLayer"
+#         inflation_radius: 0.55
+#         cost_scaling_factor: 3.0
+#       always_send_full_costmap: true

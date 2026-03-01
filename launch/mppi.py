@@ -56,7 +56,7 @@ def generate_launch_description():
         ),
         DeclareLaunchArgument(
             "params_file",
-            default_value="/home/mobimobi/thamyis/robot_TA_ws/src/all_launch/config/mppi_new.yaml",
+            default_value="/home/mobimobi/thamyis/robot_TA_ws/src/all_launch/config/mppi.yaml",
             description="Full path to the Nav2 parameters file",
         ),
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
+from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription, ExecuteProcess
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
 from launch_ros.actions import Node
@@ -68,6 +68,18 @@ def generate_launch_description():
         name='person_pose_bridge_node',
         output='screen',
         parameters=[{'use_sim_time': use_sim_time}],
+    ))
+
+    # Run raw python script from all_launch/scripts using python3
+    controller_switch_script = PathJoinSubstitution([
+        FindPackageShare('all_launch'),
+        'scripts',
+        'controller_switcher.py'
+    ])
+
+    ld.add_action(ExecuteProcess(
+        cmd=['python3', controller_switch_script],
+        output='screen'
     ))
 
     return ld

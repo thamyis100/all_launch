@@ -21,6 +21,11 @@ install(DIRECTORY rviz
   DESTINATION share/${PROJECT_NAME}
 )
 
+install(DIRECTORY scripts
+  DESTINATION share/${PROJECT_NAME}
+  USE_SOURCE_PERMISSIONS
+)
+
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
   # the following line skips the linter which checks for copyrights

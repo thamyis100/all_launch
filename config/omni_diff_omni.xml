@@ -1,0 +1,43 @@
+<root BTCPP_format="4" main_tree_to_execute="ToPose_Replan1Hz_ControllerSelector">
+
+  <BehaviorTree ID="ToPose_Replan1Hz_ControllerSelector">
+    <Sequence name="Root">
+
+      <!-- RecoveryNode MUST have exactly 2 children: main + recovery -->
+      <RecoveryNode number_of_retries="6" name="NavigateRecovery">
+
+        <!-- ========== Child 1: MAIN ========== -->
+        <PipelineSequence name="PlanAndControl">
+
+          <!-- Replan every 1s (default-like) -->
+          <RateController hz="1.0">
+            <RecoveryNode number_of_retries="1" name="ComputePath">
+              <ComputePathToPose goal="{goal}" path="{path}" planner_id="GridBased"/>
+              <ClearEntireCostmap service_name="global_costmap/clear_entirely_global_costmap"/>
+            </RecoveryNode>
+          </RateController>
+
+          <!-- Your external node publishes /controller_selector (FollowPath / FollowPathDiff) -->
+          <ControllerSelector selected_controller="{selected_controller}"
+                              default_controller="FollowPath"
+                              topic_name="controller_selector"/>
+
+          <RecoveryNode number_of_retries="1" name="FollowPath">
+            <FollowPath path="{path}" controller_id="{selected_controller}"/>
+            <ClearEntireCostmap service_name="local_costmap/clear_entirely_local_costmap"/>
+          </RecoveryNode>
+
+        </PipelineSequence>
+
+        <!-- ========== Child 2: RECOVERY ========== -->
+        <Sequence name="RecoveryActions">
+          <ClearEntireCostmap service_name="local_costmap/clear_entirely_local_costmap"/>
+          <ClearEntireCostmap service_name="global_costmap/clear_entirely_global_costmap"/>
+          <Wait wait_duration="1.0"/>
+        </Sequence>
+
+      </RecoveryNode>
+
+    </Sequence>
+  </BehaviorTree>
+</root>

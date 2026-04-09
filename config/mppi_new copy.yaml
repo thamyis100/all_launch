@@ -80,6 +80,8 @@ controller_server:
         [
           "ObstaclesCritic",
           "PathFollowCritic",
+          "PathAngleCritic",
+          "PreferForwardCritic",
           "GoalCritic",
           "GoalAngleCritic",
           "VelocityDeadbandCritic",
@@ -89,30 +91,32 @@ controller_server:
       ObstaclesCritic:
         enabled: true
         consider_footprint: true
-        repulsion_weight: 2.5
-        critical_weight: 40.0
+        repulsion_weight: 1.1
+        critical_weight: 25.0
         cost_power: 1
         collision_cost: 100000.0
-        collision_margin_distance: 0.12
+        collision_margin_distance: 0.08
         cost_scaling_factor: 2.5
 
       # Follow the path when far; stop forcing path-tracking near goal so it can settle
       PathFollowCritic:
         enabled: true
-        cost_weight: 6.0
+        cost_weight: 5.0
         cost_power: 1
         threshold_to_consider: 1.4
-        offset_from_furthest: 20
+        offset_from_furthest: 6
 
-      # DISABLED for omni/mecanum — these force diff-drive-style rotate-then-move
-      # PathAngleCritic:
-      #   enabled: false
-      #   mode: 0
-      #   cost_weight: 2.5
-      # PreferForwardCritic:
-      #   enabled: false
-      #   cost_weight: 5.0
-      #   threshold_to_consider: 2.0
+      # Keep robot generally aligned with path direction (less sideways/crabbing far away)
+      PathAngleCritic:
+        enabled: true
+        mode: 0
+        cost_weight: 2.5
+
+      # Prefer forward motion when far; turn off very near goal so final alignment isn't blocked
+      PreferForwardCritic:
+        enabled: true
+        cost_weight: 5.0
+        threshold_to_consider: 2.0
 
       # Pull to goal position when approaching
       GoalCritic:
@@ -241,7 +245,7 @@ global_costmap:
       transform_tolerance: 0.5
       global_frame: map
       robot_base_frame: base_link
-      footprint: "[[0.2125, 0.1425], [0.2125, -0.1425], [-0.2125, -0.1425], [-0.2125, 0.1425]]"
+      footprint: "[[0.2025, 0.1325], [0.2025, -0.1325], [-0.2025, -0.1325], [-0.2025, 0.1325]]"
       resolution: 0.05
       plugins: ["static_layer", "obstacle_layer", "voxel_layer", "inflation_layer"]
       obstacle_layer:
@@ -253,9 +257,9 @@ global_costmap:
         combination_method: 1
         scan:
           topic: /scan
-          obstacle_max_range: 4.0
+          obstacle_max_range: 2.5
           obstacle_min_range: 0.0
-          raytrace_max_range: 5.0
+          raytrace_max_range: 3.0
           raytrace_min_range: 0.0
           max_obstacle_height: 2.0
           min_obstacle_height: 0.0
@@ -280,9 +284,9 @@ global_costmap:
           topic: /intel_realsense_r200_depth/points
           max_obstacle_height: 2.0
           min_obstacle_height: 0.0
-          obstacle_max_range: 4.0
+          obstacle_max_range: 2.5
           obstacle_min_range: 0.0
-          raytrace_max_range: 5.0
+          raytrace_max_range: 3.0
           raytrace_min_range: 0.0
           clearing: True
           marking: True
@@ -313,10 +317,10 @@ local_costmap:
       global_frame: odom
       robot_base_frame: base_link
       rolling_window: true
-      width: 5
-      height: 5
+      width: 3
+      height: 3
       resolution: 0.05
-      footprint: "[[0.2125, 0.1425], [0.2125, -0.1425], [-0.2125, -0.1425], [-0.2125, 0.1425]]"
+      footprint: "[[0.2025, 0.1325], [0.2025, -0.1325], [-0.2025, -0.1325], [-0.2025, 0.1325]]"
       plugins: ["obstacle_layer", "voxel_layer", "inflation_layer"]
       obstacle_layer:
         plugin: "nav2_costmap_2d::ObstacleLayer"
@@ -327,9 +331,9 @@ local_costmap:
         combination_method: 1
         scan:
           topic: /scan
-          obstacle_max_range: 4.0
+          obstacle_max_range: 2.5
           obstacle_min_range: 0.0
-          raytrace_max_range: 5.0
+          raytrace_max_range: 3.0
           raytrace_min_range: 0.0
           max_obstacle_height: 2.0
           min_obstacle_height: 0.0
@@ -354,9 +358,9 @@ local_costmap:
           topic: /intel_realsense_r200_depth/points
           max_obstacle_height: 2.0
           min_obstacle_height: 0.0
-          obstacle_max_range: 4.0
+          obstacle_max_range: 2.5
           obstacle_min_range: 0.0
-          raytrace_max_range: 5.0
+          raytrace_max_range: 3.0
           raytrace_min_range: 0.0
           clearing: true
           marking: true
@@ -432,7 +436,7 @@ planner_server:
       plugin: "nav2_smac_planner/SmacPlanner2D"
       use_holonomic_motion: true
       allow_unknown: true
-      costmap_downsampling: 1
+      costmap_downsampling: 2
       max_iterations: 50000
       max_planning_time: 1.0
       allow_initial_traversal: false

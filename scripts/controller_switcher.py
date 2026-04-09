@@ -29,7 +29,7 @@ class ControllerSwitcher(Node):
         self.last_m = float(os.getenv("LAST_M", "2.0"))
         self.feedback_timeout_s = float(os.getenv("FEEDBACK_TIMEOUT_S", "5.0"))
 
-        self.odom_topic = os.getenv("ODOM_TOPIC", "/mecanum_controller/odometry")
+        self.odom_topic = os.getenv("ODOM_TOPIC", "/odom")
 
         self.cur_xy = None
         self.prev_xy = None
@@ -60,8 +60,13 @@ class ControllerSwitcher(Node):
     def on_odom(self, msg: Odometry):
         self.cur_xy = (msg.pose.pose.position.x, msg.pose.pose.position.y)
         if self.prev_xy is not None and self.last_feedback_time is not None:
-            self.traveled += hypot2(self.cur_xy, self.prev_xy)
-        self.prev_xy = self.cur_xy
+            delta = hypot2(self.cur_xy, self.prev_xy)
+            # Dead-band filter: ignore sub-millimeter odometry noise when stationary
+            if delta > 0.015 or delta < -0.015:  # meters
+                self.traveled += delta
+                self.prev_xy = self.cur_xy
+        else:
+            self.prev_xy = self.cur_xy
 
     def on_feedback(self, msg: FollowPathFeedbackMsg):
         self.last_feedback_time = self.get_clock().now()

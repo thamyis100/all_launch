@@ -26,6 +26,12 @@ def generate_launch_description():
     autostart = LaunchConfiguration("autostart")
     use_collision_monitor = LaunchConfiguration("use_collision_monitor")
     use_docking = LaunchConfiguration("use_docking")
+    use_logitech_camera = LaunchConfiguration("use_logitech_camera")
+    camera_device = LaunchConfiguration("camera_device")
+    camera_width = LaunchConfiguration("camera_width")
+    camera_height = LaunchConfiguration("camera_height")
+    camera_fps = LaunchConfiguration("camera_fps")
+    camera_hfov_deg = LaunchConfiguration("camera_hfov_deg")
     apriltag_params_file = LaunchConfiguration("apriltag_params_file")
 
     # Desired topics
@@ -69,6 +75,30 @@ def generate_launch_description():
         DeclareLaunchArgument(
             "use_docking", default_value="true",
             description="Launch docking server and AprilTag docking helpers",
+        ),
+        DeclareLaunchArgument(
+            "use_logitech_camera", default_value="true",
+            description="Launch Logitech webcam publisher node",
+        ),
+        DeclareLaunchArgument(
+            "camera_device", default_value="/dev/video0",
+            description="Video device path for Logitech webcam",
+        ),
+        DeclareLaunchArgument(
+            "camera_width", default_value="1280",
+            description="Requested webcam image width",
+        ),
+        DeclareLaunchArgument(
+            "camera_height", default_value="720",
+            description="Requested webcam image height",
+        ),
+        DeclareLaunchArgument(
+            "camera_fps", default_value="30.0",
+            description="Requested webcam FPS",
+        ),
+        DeclareLaunchArgument(
+            "camera_hfov_deg", default_value="78.0",
+            description="Approximate horizontal FOV in degrees for camera_info",
         ),
         DeclareLaunchArgument(
             "apriltag_params_file",
@@ -232,16 +262,20 @@ def generate_launch_description():
 
             Node(
                 package="all_launch",
-                executable="camera_sync_republisher.py",
-                name="camera_sync_republisher",
+                executable="logitech_camera_publisher.py",
+                name="logitech_camera_publisher",
                 output="screen",
                 parameters=[{
-                    "input_image_topic": "/camera/image_raw",
-                    "input_camera_info_topic": "/camera/camera_info",
-                    "output_image_topic": "/camera/image_apriltag",
-                    "output_camera_info_topic": "/camera/camera_info_apriltag",
+                    "device": camera_device,
+                    "image_topic": "/camera/image_raw",
+                    "camera_info_topic": "/camera/camera_info",
+                    "frame_id": "camera_optical_frame",
+                    "width": camera_width,
+                    "height": camera_height,
+                    "fps": camera_fps,
+                    "hfov_deg": camera_hfov_deg,
                 }],
-                condition=IfCondition(use_docking),
+                condition=IfCondition(use_logitech_camera),
             ),
 
             Node(

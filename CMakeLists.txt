@@ -64,6 +64,7 @@ install(PROGRAMS
   scripts/nav2_goal_metrics.py
   scripts/apriltag_dock_pose_publisher.py
   scripts/camera_sync_republisher.py
+  scripts/logitech_camera_publisher.py
   DESTINATION lib/${PROJECT_NAME}
 )
 

@@ -8,6 +8,9 @@ Nav2 navigation stack with cmd_vel topic renames:
 Also: collision_monitor is optional (OFF by default) to avoid YAML errors when not configured.
 """
 
+import os
+
+from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, GroupAction
 from launch.conditions import IfCondition
@@ -16,10 +19,14 @@ from launch_ros.actions import Node, SetParameter
 
 
 def generate_launch_description():
+    all_launch_share = get_package_share_directory("all_launch")
+
     use_sim_time = LaunchConfiguration("use_sim_time")
     params_file = LaunchConfiguration("params_file")
     autostart = LaunchConfiguration("autostart")
     use_collision_monitor = LaunchConfiguration("use_collision_monitor")
+    use_docking = LaunchConfiguration("use_docking")
+    apriltag_params_file = LaunchConfiguration("apriltag_params_file")
 
     # Desired topics
     CMD_VEL_RAW = "cmd_vel_nav_raw"
@@ -56,8 +63,17 @@ def generate_launch_description():
         ),
         DeclareLaunchArgument(
             "params_file",
-            default_value="/home/thamyis/SLAM_ws/src/all_launch/config/mppi_new.yaml",
+            default_value=os.path.join(all_launch_share, "config", "mppi.yaml"),
             description="Full path to the Nav2 parameters file",
+        ),
+        DeclareLaunchArgument(
+            "use_docking", default_value="true",
+            description="Launch docking server and AprilTag docking helpers",
+        ),
+        DeclareLaunchArgument(
+            "apriltag_params_file",
+            default_value=os.path.join(all_launch_share, "config", "apriltag_36h11.yaml"),
+            description="Full path to the apriltag_ros parameter file",
         ),
 
         GroupAction(actions=[
@@ -187,6 +203,92 @@ def generate_launch_description():
                     "node_names": ["collision_monitor"],
                 }],
                 condition=IfCondition(use_collision_monitor),
+            ),
+
+            Node(
+                package="opennav_docking",
+                executable="opennav_docking",
+                name="docking_server",
+                output="screen",
+                parameters=[params_file],
+                remappings=common_remaps + [
+                    ("cmd_vel", CMD_VEL_RAW),
+                    ("/cmd_vel", "/" + CMD_VEL_RAW),
+                ],
+                condition=IfCondition(use_docking),
+            ),
+
+            Node(
+                package="nav2_lifecycle_manager",
+                executable="lifecycle_manager",
+                name="lifecycle_manager_docking",
+                output="screen",
+                parameters=[{
+                    "autostart": autostart,
+                    "node_names": ["docking_server"],
+                }],
+                condition=IfCondition(use_docking),
+            ),
+
+            Node(
+                package="all_launch",
+                executable="camera_sync_republisher.py",
+                name="camera_sync_republisher",
+                output="screen",
+                parameters=[{
+                    "input_image_topic": "/camera/image_raw",
+                    "input_camera_info_topic": "/camera/camera_info",
+                    "output_image_topic": "/camera/image_apriltag",
+                    "output_camera_info_topic": "/camera/camera_info_apriltag",
+                }],
+                condition=IfCondition(use_docking),
+            ),
+
+            Node(
+                package="apriltag_ros",
+                executable="apriltag_node",
+                name="apriltag",
+                output="screen",
+                parameters=[apriltag_params_file],
+                remappings=common_remaps + [
+                    # Use directly-published camera topics for robust image/info pairing.
+                    ("image_rect", "/camera/image_raw"),
+                    ("camera_info", "/camera/camera_info"),
+                ],
+                condition=IfCondition(use_docking),
+            ),
+
+            Node(
+                package="all_launch",
+                executable="apriltag_dock_pose_publisher.py",
+                name="apriltag_dock_pose_publisher",
+                output="screen",
+                parameters=[{
+                    "fixed_frame": "odom",
+                    "tag_frame": "dock_tag",
+                    "output_topic": "/detected_dock_pose",
+                    "max_pose_age": 2.5,
+                }],
+                condition=IfCondition(use_docking),
+            ),
+
+            Node(
+                package="all_launch",
+                executable="dock_pose_bridge.py",
+                name="dock_pose_bridge",
+                output="screen",
+                parameters=[{
+                    "global_frame": "map",
+                    "base_frame": "base_link",
+                    "odom_topic": "/odom",
+                    "cmd_vel_topic": "/" + CMD_VEL_FINAL,
+                    "scan_topic": "/scan",
+                    "goal_topic": "/goal_pose",
+                    "dock_pose_topic": "/dock_pose",
+                    "undock_trigger_topic": "/undock_trigger",
+                    "dock_type": "simple_charging_dock",
+                    "enable_visualization": False,
+                }],
             ),
         ]),
     ])

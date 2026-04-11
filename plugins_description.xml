@@ -1,0 +1,8 @@
+<library path="all_launch_rviz_plugins">
+  <class
+    name="all_launch/Docking"
+    type="all_launch::DockingPanel"
+    base_class_type="rviz_common::Panel">
+    <description>Docking panel for /dock_pose and /undock_trigger.</description>
+  </class>
+</library>

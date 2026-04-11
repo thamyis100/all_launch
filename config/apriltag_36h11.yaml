@@ -15,8 +15,7 @@
 
     pose_estimation_method: "pnp"
 
-    # Optional: restrict to known IDs
-    # tag:
-    #   ids: [0]
-    #   frames: [tag_0]
-    #   sizes: [0.162]
+    tag:
+      ids: [0]
+      frames: [dock_tag]
+      sizes: [0.30]

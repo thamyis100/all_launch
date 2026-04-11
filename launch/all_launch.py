@@ -13,6 +13,12 @@ from launch_ros.actions import Node
 def generate_launch_description():
     use_sim_time = LaunchConfiguration('use_sim_time')
     all_launch_share = get_package_share_directory('all_launch')
+    preferred_rviz_config = '/home/thamyis/SLAM_ws/person.rviz'
+    rviz_config = (
+        preferred_rviz_config
+        if os.path.exists(preferred_rviz_config)
+        else os.path.join(all_launch_share, 'rviz', 'person.rviz')
+    )
 
     use_sim_time_arg = DeclareLaunchArgument(
         'use_sim_time',
@@ -53,8 +59,24 @@ def generate_launch_description():
         executable='rviz2',
         name='rviz2',
         output='screen',
-        arguments=['-d', os.path.join(all_launch_share, 'rviz', 'person.rviz')],
+        arguments=['-d', rviz_config],
         parameters=[{'use_sim_time': use_sim_time}],
+        # VS Code snap can leak runtime env vars that crash rviz2 with core20 glibc symbols.
+        additional_env={
+            'GTK_EXE_PREFIX': '',
+            'GTK_PATH': '',
+            'GIO_MODULE_DIR': '',
+            'GSETTINGS_SCHEMA_DIR': '',
+            'GTK_IM_MODULE_FILE': '',
+            'LOCPATH': '',
+            'XDG_DATA_HOME': os.path.expanduser('~/.local/share'),
+            'XDG_DATA_DIRS': '/usr/local/share:/usr/share:/var/lib/snapd/desktop',
+            # Work around libGL drawable / shader crashes on some driver+snap setups.
+            'LIBGL_ALWAYS_SOFTWARE': '1',
+            'MESA_LOADER_DRIVER_OVERRIDE': 'llvmpipe',
+            'QT_XCB_FORCE_SOFTWARE_OPENGL': '1',
+            'QT_OPENGL': 'software',
+        },
     )
 
     mppi = IncludeLaunchDescription(
@@ -83,8 +105,9 @@ def generate_launch_description():
         use_sim_time_arg,
         static_tf_node,
         slam_node,
-        rviz_node,
+        
         controller_switcher,
         mppi,
         robot_sim,
+        rviz_node,
     ])

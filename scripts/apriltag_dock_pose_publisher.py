@@ -36,6 +36,7 @@ class AprilTagDockPosePublisher(Node):
         self.declare_parameter("use_fallback_dock_pose", True)
         self.declare_parameter("publish_rate", 15.0)
         self.declare_parameter("max_pose_age", 0.5)
+        self.declare_parameter("fallback_transform_use_latest", True)
         # Set <= 0 to disable position-delta rejection against fallback pose.
         self.declare_parameter("max_detection_position_delta", -1.0)
         self.declare_parameter("max_detection_yaw_delta", -1.0)
@@ -48,6 +49,9 @@ class AprilTagDockPosePublisher(Node):
         self.use_fallback_dock_pose = bool(self.get_parameter("use_fallback_dock_pose").value)
         self.publish_rate = float(self.get_parameter("publish_rate").value)
         self.max_pose_age = float(self.get_parameter("max_pose_age").value)
+        self.fallback_transform_use_latest = bool(
+            self.get_parameter("fallback_transform_use_latest").value
+        )
         self.max_detection_position_delta = float(
             self.get_parameter("max_detection_position_delta").value
         )
@@ -93,6 +97,12 @@ class AprilTagDockPosePublisher(Node):
         transformed_source.header = source.header
         if not transformed_source.header.frame_id:
             transformed_source.header.frame_id = "map"
+
+        # Fallback /dock_pose can be old; use latest TF to avoid repeated
+        # extrapolation errors from stale source timestamps.
+        if self.fallback_transform_use_latest:
+            transformed_source.header.stamp = rclpy.time.Time().to_msg()
+
         transformed_source.pose = source.pose
 
         try:

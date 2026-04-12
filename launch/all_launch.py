@@ -44,7 +44,7 @@ def generate_launch_description():
     ))
 
     ld.add_action(DeclareLaunchArgument(
-        'camera_x', default_value='0.20',
+        'camera_x', default_value='0.00',
         description='base_link -> camera_link X offset (m)'
     ))
 
@@ -54,7 +54,7 @@ def generate_launch_description():
     ))
 
     ld.add_action(DeclareLaunchArgument(
-        'camera_z', default_value='0.35',
+        'camera_z', default_value='0.25',
         description='base_link -> camera_link Z offset (m)'
     ))
 
@@ -64,12 +64,12 @@ def generate_launch_description():
     ))
 
     ld.add_action(DeclareLaunchArgument(
-        'camera_pitch', default_value='0.0',
+        'camera_pitch', default_value='3.14159265359',
         description='base_link -> camera_link pitch (rad)'
     ))
 
     ld.add_action(DeclareLaunchArgument(
-        'camera_yaw', default_value='0.0',
+        'camera_yaw', default_value='3.14159265359',
         description='base_link -> camera_link yaw (rad)'
     ))
 

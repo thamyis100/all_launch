@@ -466,7 +466,6 @@ docking_server:
     max_retries: 3
     base_frame: "base_link"
     fixed_frame: "odom"
-    dock_backwards: false
     odom_topic: "odom"
     odom_duration: 0.3
     dock_prestaging_tolerance: 0.5
@@ -474,6 +473,7 @@ docking_server:
 
     dock_plugins: ["simple_charging_dock"]
     simple_charging_dock:
+      dock_direction: "forward"
       plugin: "opennav_docking::SimpleChargingDock"
       docking_threshold: 0.05
       staging_x_offset: -0.60

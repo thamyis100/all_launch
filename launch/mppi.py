@@ -77,7 +77,7 @@ def generate_launch_description():
             description="Launch docking server and AprilTag docking helpers",
         ),
         DeclareLaunchArgument(
-            "use_logitech_camera", default_value="true",
+            "use_logitech_camera", default_value="false",
             description="Launch Logitech webcam publisher node",
         ),
         DeclareLaunchArgument(

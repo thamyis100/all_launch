@@ -12,6 +12,7 @@ from launch_ros.actions import Node
 
 def generate_launch_description():
     use_sim_time = LaunchConfiguration('use_sim_time')
+    camera_source = LaunchConfiguration('camera_source')
     all_launch_share = get_package_share_directory('all_launch')
     preferred_rviz_config = '/home/thamyis/SLAM_ws/person.rviz'
     rviz_config = (
@@ -22,8 +23,13 @@ def generate_launch_description():
 
     use_sim_time_arg = DeclareLaunchArgument(
         'use_sim_time',
-        default_value='false',
+        default_value='true',
         description='Use simulation time',
+    )
+    camera_source_arg = DeclareLaunchArgument(
+        'camera_source',
+        default_value='virtual',
+        description="Camera source passed to mecanum_bot sim: 'virtual' or 'webcam'",
     )
 
 
@@ -71,11 +77,6 @@ def generate_launch_description():
             'LOCPATH': '',
             'XDG_DATA_HOME': os.path.expanduser('~/.local/share'),
             'XDG_DATA_DIRS': '/usr/local/share:/usr/share:/var/lib/snapd/desktop',
-            # Work around libGL drawable / shader crashes on some driver+snap setups.
-            'LIBGL_ALWAYS_SOFTWARE': '1',
-            'MESA_LOADER_DRIVER_OVERRIDE': 'llvmpipe',
-            'QT_XCB_FORCE_SOFTWARE_OPENGL': '1',
-            'QT_OPENGL': 'software',
         },
     )
 
@@ -87,7 +88,11 @@ def generate_launch_description():
                 'mppi.py',
             )
         ),
-        launch_arguments={'use_sim_time': use_sim_time}.items(),
+        launch_arguments={
+            'use_sim_time': use_sim_time,
+            # Keep legacy all_launch webcam node off; camera source is controlled by mecanum_bot.
+            'use_logitech_camera': 'false',
+        }.items(),
     )
 
     robot_sim = IncludeLaunchDescription(
@@ -98,11 +103,15 @@ def generate_launch_description():
                 'sim_bringup.launch.py',
             )
         ),
-        launch_arguments={'use_sim_time': use_sim_time}.items(),
+        launch_arguments={
+            'use_sim_time': use_sim_time,
+            'camera_source': camera_source,
+        }.items(),
     )
 
     return LaunchDescription([
         use_sim_time_arg,
+        camera_source_arg,
         static_tf_node,
         slam_node,
         

@@ -2,6 +2,7 @@
 
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription, ExecuteProcess
+from launch.conditions import IfCondition
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
 from launch_ros.actions import Node
@@ -12,6 +13,13 @@ def generate_launch_description():
     use_sim_time = LaunchConfiguration('use_sim_time')
     robot_launch = LaunchConfiguration('robot_launch')
     point_lio_launch = LaunchConfiguration('point_lio_launch')
+    enable_camera_tf = LaunchConfiguration('enable_camera_tf')
+    camera_x = LaunchConfiguration('camera_x')
+    camera_y = LaunchConfiguration('camera_y')
+    camera_z = LaunchConfiguration('camera_z')
+    camera_roll = LaunchConfiguration('camera_roll')
+    camera_pitch = LaunchConfiguration('camera_pitch')
+    camera_yaw = LaunchConfiguration('camera_yaw')
 
     ld = LaunchDescription()
 
@@ -28,6 +36,41 @@ def generate_launch_description():
     ld.add_action(DeclareLaunchArgument(
         'point_lio_launch', default_value='point_lio.py',
         description='Launch filename inside all_launch/launch'
+    ))
+
+    ld.add_action(DeclareLaunchArgument(
+        'enable_camera_tf', default_value='true',
+        description='Publish static TF for camera_link and camera_optical_frame'
+    ))
+
+    ld.add_action(DeclareLaunchArgument(
+        'camera_x', default_value='0.20',
+        description='base_link -> camera_link X offset (m)'
+    ))
+
+    ld.add_action(DeclareLaunchArgument(
+        'camera_y', default_value='0.00',
+        description='base_link -> camera_link Y offset (m)'
+    ))
+
+    ld.add_action(DeclareLaunchArgument(
+        'camera_z', default_value='0.35',
+        description='base_link -> camera_link Z offset (m)'
+    ))
+
+    ld.add_action(DeclareLaunchArgument(
+        'camera_roll', default_value='0.0',
+        description='base_link -> camera_link roll (rad)'
+    ))
+
+    ld.add_action(DeclareLaunchArgument(
+        'camera_pitch', default_value='0.0',
+        description='base_link -> camera_link pitch (rad)'
+    ))
+
+    ld.add_action(DeclareLaunchArgument(
+        'camera_yaw', default_value='0.0',
+        description='base_link -> camera_link yaw (rad)'
     ))
 
     # Build launch paths safely (NO os.path.join with LaunchConfiguration)
@@ -59,6 +102,33 @@ def generate_launch_description():
     ld.add_action(IncludeLaunchDescription(
         PythonLaunchDescriptionSource(point_lio_launch_path),
         launch_arguments={'use_sim_time': use_sim_time}.items(),
+    ))
+
+    # camera static TFs for camera visualization and tag localization chain
+    ld.add_action(Node(
+        package='tf2_ros',
+        executable='static_transform_publisher',
+        name='base_link_to_camera_link',
+        arguments=[
+            camera_x, camera_y, camera_z,
+            camera_roll, camera_pitch, camera_yaw,
+            'base_link', 'camera_link'
+        ],
+        condition=IfCondition(enable_camera_tf),
+        output='screen'
+    ))
+
+    ld.add_action(Node(
+        package='tf2_ros',
+        executable='static_transform_publisher',
+        name='camera_link_to_camera_optical_frame',
+        arguments=[
+            '0', '0', '0',
+            '-1.57079632679', '0', '-1.57079632679',
+            'camera_link', 'camera_optical_frame'
+        ],
+        condition=IfCondition(enable_camera_tf),
+        output='screen'
     ))
 
     # person pose bridge (change these 2 lines if your names differ)

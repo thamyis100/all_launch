@@ -23,6 +23,8 @@ class LogitechCameraPublisher(Node):
         self.declare_parameter("height", 720)
         self.declare_parameter("fps", 30.0)
         self.declare_parameter("hfov_deg", 78.0)
+        self.declare_parameter("pixel_format", "MJPG")
+        self.declare_parameter("buffer_size", 1)
 
         self.device = str(self.get_parameter("device").value)
         self.image_topic = str(self.get_parameter("image_topic").value)
@@ -32,6 +34,8 @@ class LogitechCameraPublisher(Node):
         self.height = int(self.get_parameter("height").value)
         self.fps = float(self.get_parameter("fps").value)
         self.hfov_deg = float(self.get_parameter("hfov_deg").value)
+        self.pixel_format = str(self.get_parameter("pixel_format").value).upper()
+        self.buffer_size = int(self.get_parameter("buffer_size").value)
 
         self.bridge = CvBridge()
         sensor_qos = QoSProfile(
@@ -58,6 +62,12 @@ class LogitechCameraPublisher(Node):
         self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, self.width)
         self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, self.height)
         self.cap.set(cv2.CAP_PROP_FPS, self.fps)
+        if self.buffer_size > 0:
+            self.cap.set(cv2.CAP_PROP_BUFFERSIZE, self.buffer_size)
+
+        if self.pixel_format and len(self.pixel_format) == 4:
+            fourcc = cv2.VideoWriter_fourcc(*self.pixel_format)
+            self.cap.set(cv2.CAP_PROP_FOURCC, fourcc)
 
         self.actual_width = int(self.cap.get(cv2.CAP_PROP_FRAME_WIDTH))
         self.actual_height = int(self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
@@ -68,7 +78,8 @@ class LogitechCameraPublisher(Node):
 
         self.get_logger().info(
             f"Publishing webcam {opened_device} -> {self.image_topic} + {self.camera_info_topic} "
-            f"at {self.actual_width}x{self.actual_height} @{timer_hz:.1f}Hz"
+            f"at {self.actual_width}x{self.actual_height} @{timer_hz:.1f}Hz "
+            f"(fmt={self.pixel_format}, buffer={self.buffer_size})"
         )
 
     def open_camera(self, requested_device: str):

@@ -274,9 +274,25 @@ def generate_launch_description():
                     "height": camera_height,
                     "fps": camera_fps,
                     "hfov_deg": camera_hfov_deg,
+                    "pixel_format": "MJPG",
+                    "buffer_size": 1,
                 }],
                 condition=IfCondition(use_logitech_camera),
             ),
+
+            # Node(
+            #     package="all_launch",
+            #     executable="camera_sync_republisher.py",
+            #     name="camera_sync_republisher",
+            #     output="screen",
+            #     parameters=[{
+            #         "input_image_topic": "/camera/image_raw",
+            #         "input_camera_info_topic": "/camera/camera_info",
+            #         "output_image_topic": "/camera/image_apriltag",
+            #         "output_camera_info_topic": "/camera/camera_info_apriltag",
+            #     }],
+            #     condition=IfCondition(use_docking),
+            # ),
 
             Node(
                 package="apriltag_ros",
@@ -285,7 +301,7 @@ def generate_launch_description():
                 output="screen",
                 parameters=[apriltag_params_file],
                 remappings=common_remaps + [
-                    # Use directly-published camera topics for robust image/info pairing.
+                    # Consume republished image+info with matching stamps.
                     ("image_rect", "/camera/image_raw"),
                     ("camera_info", "/camera/camera_info"),
                 ],
@@ -301,7 +317,8 @@ def generate_launch_description():
                     "fixed_frame": "odom",
                     "tag_frame": "dock_tag",
                     "output_topic": "/detected_dock_pose",
-                    "max_pose_age": 2.5,
+                    "max_pose_age": 6.0,
+                    "fallback_transform_use_latest": False,
                 }],
                 condition=IfCondition(use_docking),
             ),
@@ -321,6 +338,7 @@ def generate_launch_description():
                     "dock_pose_topic": "/dock_pose",
                     "undock_trigger_topic": "/undock_trigger",
                     "dock_type": "simple_charging_dock",
+                    "max_detected_dock_pose_age": 3.0,
                     "enable_visualization": False,
                 }],
             ),

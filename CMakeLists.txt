@@ -62,6 +62,7 @@ install(PROGRAMS
   scripts/controller_switcher.py
   scripts/dock_pose_bridge.py
   scripts/nav2_goal_metrics.py
+  scripts/qwen.py
   scripts/apriltag_dock_pose_publisher.py
   scripts/camera_sync_republisher.py
   scripts/logitech_camera_publisher.py

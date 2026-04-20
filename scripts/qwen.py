@@ -6,6 +6,7 @@ Collects navigation metrics and generates static trajectory images with obstacle
 import math
 import sys
 import os
+import csv
 from dataclasses import dataclass, field
 from typing import Optional, List, Dict
 from datetime import datetime
@@ -369,6 +370,10 @@ class Nav2GoalMetrics(Node):
         self.declare_parameter("enable_visualization", True)
         self.declare_parameter("visualization_output_dir", "./trajectory_images")
         self.declare_parameter("trajectory_record_rate_hz", 10.0)
+        self.declare_parameter("enable_csv_logging", True)
+        self.declare_parameter("csv_summary_path", "./trajectory_images/nav2_metrics_summary.csv")
+        self.declare_parameter("write_trajectory_csv", False)
+        self.declare_parameter("csv_trajectory_path", "./trajectory_images/nav2_metrics_trajectory.csv")
         
         self.goal_topic = self.get_parameter("goal_topic").value
         self.dock_pose_topic = self.get_parameter("dock_pose_topic").value
@@ -403,6 +408,10 @@ class Nav2GoalMetrics(Node):
         self.enable_viz = self.get_parameter("enable_visualization").value
         self.viz_output_dir = self.get_parameter("visualization_output_dir").value
         self.trajectory_rate = self.get_parameter("trajectory_record_rate_hz").value
+        self.enable_csv_logging = bool(self.get_parameter("enable_csv_logging").value)
+        self.csv_summary_path = self.get_parameter("csv_summary_path").value
+        self.write_trajectory_csv = bool(self.get_parameter("write_trajectory_csv").value)
+        self.csv_trajectory_path = self.get_parameter("csv_trajectory_path").value
         
         if self.enable_viz and VISUALIZATION_AVAILABLE:
             self.visualizer = TrajectoryVisualizer(self.viz_output_dir)
@@ -448,6 +457,9 @@ class Nav2GoalMetrics(Node):
         
         self.metrics = RunMetrics()
         self.latest_docking_phase = "IDLE"
+
+        if self.enable_csv_logging:
+            self._initialize_csv_outputs()
         
         # =========================================================================
         # NEW: TRAJECTORY RECORDING TIMER
@@ -464,6 +476,7 @@ class Nav2GoalMetrics(Node):
             f"Goal source: {self.goal_source} | goal_topic: {self.goal_topic} | dock_pose_topic: {self.dock_pose_topic}\n"
             f"dock_pose_listen_only={self.dock_pose_listen_only}  dock_tf_frame={self.dock_tf_frame}\n"
             f"enable_docking_status_finish={self.enable_docking_status_finish}  docking_status_topic={self.docking_status_topic}\n"
+            f"csv_logging={self.enable_csv_logging}  summary_csv={self.csv_summary_path}\n"
             f"If forwarding enabled, sending to action '{self.action_name}'.\n"
             f"Odom:{self.odom_topic}  Cmd:{self.cmd_vel_topic}  Scan:{self.scan_topic}\n"
             f"TF: {self.global_frame} -> {self.base_frame}\n"
@@ -568,6 +581,124 @@ class Nav2GoalMetrics(Node):
         self.metrics.final_dyaw = angle_wrap(tyaw - lyaw)
         self.metrics.along_track = math.cos(tyaw) * dx + math.sin(tyaw) * dy
         self.metrics.cross_track = -math.sin(tyaw) * dx + math.cos(tyaw) * dy
+
+    def _initialize_csv_outputs(self) -> None:
+        """Create CSV output files with headers if they do not exist."""
+        summary_dir = os.path.dirname(self.csv_summary_path)
+        if summary_dir:
+            os.makedirs(summary_dir, exist_ok=True)
+
+        if (not os.path.exists(self.csv_summary_path)) or os.path.getsize(self.csv_summary_path) == 0:
+            with open(self.csv_summary_path, "w", newline="", encoding="utf-8") as f:
+                writer = csv.writer(f)
+                writer.writerow([
+                    "timestamp",
+                    "run_id",
+                    "status",
+                    "source_topic",
+                    "duration_s",
+                    "path_len_odom_m",
+                    "path_len_tf_m",
+                    "straight_line_dist_m",
+                    "straight_line_ratio",
+                    "path_source",
+                    "goal_x",
+                    "goal_y",
+                    "goal_yaw_deg",
+                    "final_dx_m",
+                    "final_dy_m",
+                    "final_dist_m",
+                    "final_dyaw_deg",
+                    "along_track_m",
+                    "cross_track_m",
+                    "max_cmd_v_mps",
+                    "max_cmd_w_rps",
+                    "max_act_v_mps",
+                    "max_act_w_rps",
+                    "min_scan_m",
+                    "global_plan_updates",
+                    "local_plan_updates",
+                    "stop_go_count",
+                    "velocity_sign_flips",
+                    "unsafe_clearance_time_s",
+                    "image_path",
+                ])
+
+        if self.write_trajectory_csv:
+            traj_dir = os.path.dirname(self.csv_trajectory_path)
+            if traj_dir:
+                os.makedirs(traj_dir, exist_ok=True)
+            if (not os.path.exists(self.csv_trajectory_path)) or os.path.getsize(self.csv_trajectory_path) == 0:
+                with open(self.csv_trajectory_path, "w", newline="", encoding="utf-8") as f:
+                    writer = csv.writer(f)
+                    writer.writerow([
+                        "run_id",
+                        "source_topic",
+                        "point_index",
+                        "timestamp_s",
+                        "x_m",
+                        "y_m",
+                        "yaw_rad",
+                        "controller",
+                    ])
+
+    def _write_csv_outputs(self, status_str: str, dt: float, ratio: Optional[float], ratio_src: str) -> None:
+        """Append run summary and trajectory samples to CSV outputs."""
+        if not self.enable_csv_logging:
+            return
+
+        goal_yaw_deg = math.degrees(self.metrics.goal_yaw)
+        final_dyaw_deg = math.degrees(self.metrics.final_dyaw) if self.metrics.final_dyaw is not None else ""
+
+        with open(self.csv_summary_path, "a", newline="", encoding="utf-8") as f:
+            writer = csv.writer(f)
+            writer.writerow([
+                datetime.now().isoformat(timespec="seconds"),
+                self.metrics.run_id,
+                status_str,
+                self.metrics.source_topic,
+                f"{dt:.3f}",
+                f"{self.metrics.path_len_m:.3f}",
+                f"{self.metrics.path_len_tf_m:.3f}",
+                "" if self.metrics.straight_line_dist is None else f"{self.metrics.straight_line_dist:.3f}",
+                "" if ratio is None else f"{ratio:.3f}",
+                ratio_src,
+                f"{self.metrics.goal_x:.3f}",
+                f"{self.metrics.goal_y:.3f}",
+                f"{goal_yaw_deg:.2f}",
+                "" if self.metrics.final_dx is None else f"{self.metrics.final_dx:.3f}",
+                "" if self.metrics.final_dy is None else f"{self.metrics.final_dy:.3f}",
+                "" if self.metrics.final_dist is None else f"{self.metrics.final_dist:.3f}",
+                final_dyaw_deg,
+                "" if self.metrics.along_track is None else f"{self.metrics.along_track:.3f}",
+                "" if self.metrics.cross_track is None else f"{self.metrics.cross_track:.3f}",
+                f"{self.metrics.max_cmd_v:.3f}",
+                f"{self.metrics.max_cmd_w:.3f}",
+                f"{self.metrics.max_act_v:.3f}",
+                f"{self.metrics.max_act_w:.3f}",
+                "" if not math.isfinite(self.metrics.min_scan) else f"{self.metrics.min_scan:.3f}",
+                self.metrics.global_plan_updates,
+                self.metrics.local_plan_updates,
+                self.metrics.stop_go_count,
+                self.metrics.sign_flip_count,
+                f"{self.metrics.unsafe_clearance_time:.3f}",
+                self.metrics.image_path or "",
+            ])
+
+        if self.write_trajectory_csv and len(self.metrics.trajectory_points) > 0:
+            with open(self.csv_trajectory_path, "a", newline="", encoding="utf-8") as f:
+                writer = csv.writer(f)
+                for idx, p in enumerate(self.metrics.trajectory_points):
+                    writer.writerow([
+                        self.metrics.run_id,
+                        self.metrics.source_topic,
+                        idx,
+                        f"{float(p.get('timestamp', 0.0)):.3f}",
+                        f"{float(p.get('x', 0.0)):.3f}",
+                        f"{float(p.get('y', 0.0)):.3f}",
+                        f"{float(p.get('yaw', 0.0)):.6f}",
+                        p.get('controller', 'unknown'),
+                    ])
 
     def start_run(self, msg: PoseStamped, source_topic: str) -> bool:
         """Initialize a new run from goal_pose or dock_pose input."""
@@ -1073,6 +1204,15 @@ class Nav2GoalMetrics(Node):
             GoalStatus.STATUS_UNKNOWN: "UNKNOWN",
         }.get(self.metrics.result_status, f"STATUS_{self.metrics.result_status}")
 
+        ratio = None
+        ratio_src = ""
+        if self.metrics.straight_line_dist is not None and self.metrics.straight_line_dist > 0:
+            effective_path = self.metrics.path_len_m if self.metrics.path_len_m > 0.0 else self.metrics.path_len_tf_m
+            ratio = effective_path / self.metrics.straight_line_dist
+            ratio_src = "odom" if self.metrics.path_len_m > 0.0 else "tf"
+
+        self._write_csv_outputs(status_str, dt, ratio, ratio_src)
+
         print("\n" + "=" * 60)
         print(f"RUN {self.metrics.run_id} RESULT: {status_str}")
         print(f"Source topic        : {self.metrics.source_topic}")
@@ -1104,10 +1244,7 @@ class Nav2GoalMetrics(Node):
         print(f"Global plan updates  : {self.metrics.global_plan_updates}  (topic: {self.global_plan_topic})")
         print(f"Local plan updates   : {self.metrics.local_plan_updates}  (topic: {self.local_plan_topic})")
 
-        if self.metrics.straight_line_dist is not None and self.metrics.straight_line_dist > 0:
-            effective_path = self.metrics.path_len_m if self.metrics.path_len_m > 0.0 else self.metrics.path_len_tf_m
-            ratio = effective_path / self.metrics.straight_line_dist
-            ratio_src = "odom" if self.metrics.path_len_m > 0.0 else "tf"
+        if ratio is not None:
             print(f"Straight-line ratio  : {ratio:.3f}  (path source: {ratio_src})")
 
         if self.metrics.sample_count > 0:

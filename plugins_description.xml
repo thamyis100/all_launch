@@ -5,4 +5,10 @@
     base_class_type="rviz_common::Panel">
     <description>Docking panel for /dock_pose and /undock_trigger.</description>
   </class>
+  <class
+    name="all_launch/DockPoseTool"
+    type="all_launch::DockPoseTool"
+    base_class_type="rviz_common::Tool">
+    <description>2D dock pose tool that publishes PoseStamped to /dock_pose.</description>
+  </class>
 </library>

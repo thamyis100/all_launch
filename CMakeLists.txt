@@ -17,10 +17,12 @@ find_package(pluginlib REQUIRED)
 find_package(rclpy REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(rviz_common REQUIRED)
+find_package(rviz_default_plugins REQUIRED)
 find_package(std_msgs REQUIRED)
 
 add_library(all_launch_rviz_plugins SHARED
   src/docking_panel.cpp
+  src/dock_pose_tool.cpp
 )
 target_include_directories(all_launch_rviz_plugins PUBLIC
   include
@@ -33,6 +35,7 @@ ament_target_dependencies(all_launch_rviz_plugins
   pluginlib
   rclcpp
   rviz_common
+  rviz_default_plugins
   std_msgs
 )
 
@@ -94,6 +97,7 @@ ament_export_dependencies(
   pluginlib
   rclcpp
   rviz_common
+  rviz_default_plugins
   std_msgs
 )
 

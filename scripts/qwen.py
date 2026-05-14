@@ -198,30 +198,37 @@ class TrajectoryVisualizer:
             ax.plot(x_coords[-1], y_coords[-1], 'rs', markersize=10,
                    label='Robot Final', markeredgecolor='darkred', markeredgewidth=2, zorder=3)
         
-        # 4️⃣ Draw target pose (goal or dock tf)
+        # 4️⃣ Draw goal pose target and docking references
         if show_goal:
-            target_x = metrics.goal_x
-            target_y = metrics.goal_y
-            target_yaw = metrics.goal_yaw
-            target_label = 'Goal'
-            target_marker_color = 'purple'
+            # Goal marker always reflects requested goal topic pose (/goal_pose or /dock_pose).
+            goal_plot_x = metrics.goal_x
+            goal_plot_y = metrics.goal_y
+            goal_plot_yaw = metrics.goal_yaw
 
+            # Goal/dock_pose target marker
+            ax.plot(goal_plot_x, goal_plot_y, marker='D', linestyle='None',
+                   markersize=10, color='deepskyblue', markeredgecolor='navy',
+                   markeredgewidth=1.5, label='Goal Pose Target', zorder=3)
+
+            goal_dx = 0.45 * math.cos(goal_plot_yaw)
+            goal_dy = 0.45 * math.sin(goal_plot_yaw)
+            ax.arrow(goal_plot_x, goal_plot_y, goal_dx, goal_dy,
+                     head_width=0.10, head_length=0.14, fc='deepskyblue', ec='deepskyblue',
+                     alpha=0.85, linewidth=2.0, zorder=3)
+
+            # Live dock tag TF marker (dock_tag frame) if available
             if metrics.dock_tf_x is not None and metrics.dock_tf_y is not None:
-                target_x = metrics.dock_tf_x
-                target_y = metrics.dock_tf_y
-                target_yaw = metrics.dock_tf_yaw if metrics.dock_tf_yaw is not None else metrics.goal_yaw
-                target_label = 'Dock TF'
-                target_marker_color = 'magenta'
+                dock_tf_yaw = metrics.dock_tf_yaw if metrics.dock_tf_yaw is not None else metrics.goal_yaw
+                ax.plot(metrics.dock_tf_x, metrics.dock_tf_y, marker='*', linestyle='None',
+                       markersize=20, color='magenta', markeredgecolor='purple',
+                       markeredgewidth=2.0, label='Dock Tag TF', zorder=4)
 
-            ax.plot(target_x, target_y, 'm*', markersize=18,
-                   label=target_label, markeredgecolor='purple', markeredgewidth=2, zorder=3)
+                dock_dx = 0.6 * math.cos(dock_tf_yaw)
+                dock_dy = 0.6 * math.sin(dock_tf_yaw)
+                ax.arrow(metrics.dock_tf_x, metrics.dock_tf_y, dock_dx, dock_dy,
+                        head_width=0.12, head_length=0.18, fc='purple', ec='purple',
+                        alpha=0.9, linewidth=2.5, zorder=4)
 
-            # Target orientation arrow
-            target_dx = 0.6 * math.cos(target_yaw)
-            target_dy = 0.6 * math.sin(target_yaw)
-            ax.arrow(target_x, target_y, target_dx, target_dy,
-                    head_width=0.12, head_length=0.18, fc=target_marker_color, ec=target_marker_color,
-                    alpha=0.9, linewidth=2.5, zorder=3)
         
         # 5️⃣ Draw heading arrows along trajectory
         if show_heading and len(yaws) > 0:
@@ -344,16 +351,18 @@ class Nav2GoalMetrics(Node):
         self.declare_parameter("goal_topic", "/goal_pose")
         self.declare_parameter("dock_pose_topic", "/dock_pose")
         self.declare_parameter("goal_source", "both")  # goal_pose | dock_pose | both
+        self.declare_parameter("goal_pose_listen_only", True)
         self.declare_parameter("dock_pose_listen_only", True)
         self.declare_parameter("nav_action_name", "navigate_to_pose")
         self.declare_parameter("global_frame", "map")
         self.declare_parameter("base_frame", "base_link")
-        self.declare_parameter("dock_tf_frame", "dock_frame")
+        self.declare_parameter("dock_tf_frame", "dock_tag")
         self.declare_parameter("enable_dock_tf_finish", True)
         self.declare_parameter("dock_xy_tolerance", 0.20)
         self.declare_parameter("dock_yaw_tolerance", 0.20)
         self.declare_parameter("dock_hold_time_s", 1.0)
-        self.declare_parameter("dock_timeout_s", 120.0)
+        self.declare_parameter("dock_timeout_s", 10000.0)
+        self.declare_parameter("goal_timeout_s", 10000.0)
         self.declare_parameter("enable_docking_status_finish", True)
         self.declare_parameter("docking_status_topic", "/docking/status_text")
         self.declare_parameter("odom_topic", "/odom")
@@ -378,6 +387,7 @@ class Nav2GoalMetrics(Node):
         self.goal_topic = self.get_parameter("goal_topic").value
         self.dock_pose_topic = self.get_parameter("dock_pose_topic").value
         self.goal_source = self.get_parameter("goal_source").value
+        self.goal_pose_listen_only = bool(self.get_parameter("goal_pose_listen_only").value)
         self.dock_pose_listen_only = bool(self.get_parameter("dock_pose_listen_only").value)
         self.action_name = self.get_parameter("nav_action_name").value
         self.global_frame = self.get_parameter("global_frame").value
@@ -388,6 +398,7 @@ class Nav2GoalMetrics(Node):
         self.dock_yaw_tolerance = float(self.get_parameter("dock_yaw_tolerance").value)
         self.dock_hold_time_s = float(self.get_parameter("dock_hold_time_s").value)
         self.dock_timeout_s = float(self.get_parameter("dock_timeout_s").value)
+        self.goal_timeout_s = float(self.get_parameter("goal_timeout_s").value)
         self.enable_docking_status_finish = bool(self.get_parameter("enable_docking_status_finish").value)
         self.docking_status_topic = self.get_parameter("docking_status_topic").value
         self.odom_topic = self.get_parameter("odom_topic").value
@@ -474,6 +485,7 @@ class Nav2GoalMetrics(Node):
         
         self.get_logger().info(
             f"Goal source: {self.goal_source} | goal_topic: {self.goal_topic} | dock_pose_topic: {self.dock_pose_topic}\n"
+            f"goal_pose_listen_only={self.goal_pose_listen_only}  goal_timeout_s={self.goal_timeout_s}\n"
             f"dock_pose_listen_only={self.dock_pose_listen_only}  dock_tf_frame={self.dock_tf_frame}\n"
             f"enable_docking_status_finish={self.enable_docking_status_finish}  docking_status_topic={self.docking_status_topic}\n"
             f"csv_logging={self.enable_csv_logging}  summary_csv={self.csv_summary_path}\n"
@@ -529,14 +541,50 @@ class Nav2GoalMetrics(Node):
         return total
 
     def _target_pose_for_error(self) -> Optional[tuple]:
-        """Return target pose for final error: prefer dock TF, fallback to requested target pose."""
+        """Return goal target pose for final pose error in map frame."""
+        return (self.metrics.goal_x, self.metrics.goal_y, self.metrics.goal_yaw)
+
+    def _dock_tf_pose_for_closeness(self) -> Optional[tuple]:
+        """Return dock_tag pose for closeness reporting.
+
+        Priority: live TF frame -> TF snapshot.
+        """
         dock_tf = self.lookup_frame_pose_map(self.dock_tf_frame)
         if dock_tf is not None:
             return dock_tf
         if self.metrics.dock_tf_x is not None and self.metrics.dock_tf_y is not None:
             yaw = self.metrics.dock_tf_yaw if self.metrics.dock_tf_yaw is not None else self.metrics.goal_yaw
             return (self.metrics.dock_tf_x, self.metrics.dock_tf_y, yaw)
-        return (self.metrics.goal_x, self.metrics.goal_y, self.metrics.goal_yaw)
+        return None
+
+    def _robot_final_pose_for_metrics(self) -> Optional[tuple]:
+        """Return final robot pose used for metric calculations."""
+        if len(self.metrics.trajectory_points) > 0:
+            last = self.metrics.trajectory_points[-1]
+            return (
+                float(last.get('x', 0.0)),
+                float(last.get('y', 0.0)),
+                float(last.get('yaw', 0.0)),
+            )
+        return self.lookup_robot_pose_map()
+
+    def _recompute_final_error_against_goal_target(self) -> None:
+        """Compute final pose error in map frame against Goal Pose Target only."""
+        robot_pose = self._robot_final_pose_for_metrics()
+        if robot_pose is None:
+            return
+
+        rx, ry, ryaw = robot_pose
+        tx, ty, tyaw = self._target_pose_for_error()
+        dx = tx - rx
+        dy = ty - ry
+
+        self.metrics.final_dx = dx
+        self.metrics.final_dy = dy
+        self.metrics.final_dist = hypot2(dx, dy)
+        self.metrics.final_dyaw = angle_wrap(tyaw - ryaw)
+        self.metrics.along_track = math.cos(tyaw) * dx + math.sin(tyaw) * dy
+        self.metrics.cross_track = -math.sin(tyaw) * dx + math.cos(tyaw) * dy
 
     def _update_active_dock_target(self, msg: PoseStamped) -> None:
         """Update active dock run target from the newest /dock_pose message."""
@@ -621,6 +669,8 @@ class Nav2GoalMetrics(Node):
                     "stop_go_count",
                     "velocity_sign_flips",
                     "unsafe_clearance_time_s",
+                    "dock_tf_closeness_dist_m",
+                    "dock_tf_closeness_yaw_deg",
                     "image_path",
                 ])
 
@@ -642,7 +692,15 @@ class Nav2GoalMetrics(Node):
                         "controller",
                     ])
 
-    def _write_csv_outputs(self, status_str: str, dt: float, ratio: Optional[float], ratio_src: str) -> None:
+    def _write_csv_outputs(
+        self,
+        status_str: str,
+        dt: float,
+        ratio: Optional[float],
+        ratio_src: str,
+        dock_tf_closeness_dist: Optional[float],
+        dock_tf_closeness_yaw_deg: Optional[float],
+    ) -> None:
         """Append run summary and trajectory samples to CSV outputs."""
         if not self.enable_csv_logging:
             return
@@ -682,6 +740,8 @@ class Nav2GoalMetrics(Node):
                 self.metrics.stop_go_count,
                 self.metrics.sign_flip_count,
                 f"{self.metrics.unsafe_clearance_time:.3f}",
+                "" if dock_tf_closeness_dist is None else f"{dock_tf_closeness_dist:.3f}",
+                "" if dock_tf_closeness_yaw_deg is None else f"{dock_tf_closeness_yaw_deg:.2f}",
                 self.metrics.image_path or "",
             ])
 
@@ -752,6 +812,7 @@ class Nav2GoalMetrics(Node):
             dock_tf_y=(dock_pose[1] if dock_pose is not None else None),
             dock_tf_yaw=(dock_pose[2] if dock_pose is not None else None),
         )
+        self.active_goal_uuid = ""
 
         if pose is not None:
             self.metrics.start_x, self.metrics.start_y, self.metrics.start_yaw = pose
@@ -802,6 +863,12 @@ class Nav2GoalMetrics(Node):
     
     def on_goal_pose(self, msg: PoseStamped):
         if not self.start_run(msg, source_topic="goal_pose"):
+            return
+
+        if self.goal_pose_listen_only:
+            self.get_logger().info(
+                "Goal pose run active in listen-only mode; Nav2 command is handled by external goal sender"
+            )
             return
 
         # Wait for action server then send goal
@@ -994,8 +1061,6 @@ class Nav2GoalMetrics(Node):
             target_x = self.metrics.goal_x
             target_y = self.metrics.goal_y
             target_yaw = self.metrics.goal_yaw
-            if dock_pose is not None:
-                target_x, target_y, target_yaw = dock_pose
 
             dx = target_x - rx
             dy = target_y - ry
@@ -1018,26 +1083,44 @@ class Nav2GoalMetrics(Node):
         self.finalize_run_output()
 
     def monitor_dock_completion(self):
-        """In listen-only dock mode, finish run based on tf distance/yaw thresholds."""
+        """Finish listen-only runs based on TF distance/yaw thresholds and timeout."""
         if not self.metrics.active:
             return
-        if self.metrics.source_topic != "dock_pose":
-            return
-        if not self.dock_pose_listen_only:
-            return
-        if not self.enable_dock_tf_finish:
-            return
+        source = self.metrics.source_topic
 
-        robot_pose = self.lookup_robot_pose_map()
-        dock_pose = self.lookup_frame_pose_map(self.dock_tf_frame)
-        if robot_pose is None or dock_pose is None:
+        if source == "dock_pose":
+            if not self.dock_pose_listen_only:
+                return
+            if not self.enable_dock_tf_finish:
+                return
+            robot_pose = self.lookup_robot_pose_map()
+            dock_pose = self.lookup_frame_pose_map(self.dock_tf_frame)
+            if robot_pose is None or dock_pose is None:
+                return
+            target_x, target_y, target_yaw = dock_pose
+            timeout_s = self.dock_timeout_s
+            success_msg = "Dock listen-only completion"
+            timeout_msg = "Dock listen-only timeout"
+        elif source == "goal_pose":
+            if not self.goal_pose_listen_only:
+                return
+            robot_pose = self.lookup_robot_pose_map()
+            if robot_pose is None:
+                return
+            target_x = self.metrics.goal_x
+            target_y = self.metrics.goal_y
+            target_yaw = self.metrics.goal_yaw
+            timeout_s = self.goal_timeout_s
+            success_msg = "Goal listen-only completion"
+            timeout_msg = "Goal listen-only timeout"
+        else:
             return
 
         rx, ry, ryaw = robot_pose
-        dx = dock_pose[0] - rx
-        dy = dock_pose[1] - ry
+        dx = target_x - rx
+        dy = target_y - ry
         dist = hypot2(dx, dy)
-        dyaw = abs(angle_wrap(dock_pose[2] - ryaw))
+        dyaw = abs(angle_wrap(target_yaw - ryaw))
 
         now = self.now()
         within = (dist <= self.dock_xy_tolerance) and (dyaw <= self.dock_yaw_tolerance)
@@ -1049,47 +1132,43 @@ class Nav2GoalMetrics(Node):
                 if hold >= self.dock_hold_time_s:
                     self.metrics.t_end = now
                     self.metrics.result_status = GoalStatus.STATUS_SUCCEEDED
-                    self.metrics.goal_x = dock_pose[0]
-                    self.metrics.goal_y = dock_pose[1]
-                    self.metrics.goal_yaw = dock_pose[2]
-                    self.metrics.dock_tf_x = dock_pose[0]
-                    self.metrics.dock_tf_y = dock_pose[1]
-                    self.metrics.dock_tf_yaw = dock_pose[2]
+                    if source == "dock_pose":
+                        self.metrics.dock_tf_x = target_x
+                        self.metrics.dock_tf_y = target_y
+                        self.metrics.dock_tf_yaw = target_yaw
                     self.metrics.final_dx = dx
                     self.metrics.final_dy = dy
                     self.metrics.final_dist = dist
-                    self.metrics.final_dyaw = angle_wrap(dock_pose[2] - ryaw)
-                    self.metrics.along_track = math.cos(dock_pose[2]) * dx + math.sin(dock_pose[2]) * dy
-                    self.metrics.cross_track = -math.sin(dock_pose[2]) * dx + math.cos(dock_pose[2]) * dy
+                    self.metrics.final_dyaw = angle_wrap(target_yaw - ryaw)
+                    self.metrics.along_track = math.cos(target_yaw) * dx + math.sin(target_yaw) * dy
+                    self.metrics.cross_track = -math.sin(target_yaw) * dx + math.cos(target_yaw) * dy
                     self.metrics.active = False
                     self.get_logger().info(
-                        f"Dock listen-only completion: dist={dist:.3f}m yaw_err={math.degrees(dyaw):.2f}deg"
+                        f"{success_msg}: dist={dist:.3f}m yaw_err={math.degrees(dyaw):.2f}deg"
                     )
                     self.finalize_run_output()
                     return
         else:
             self.metrics.within_tol_since = None
 
-        if self.metrics.t_start is not None and self.dock_timeout_s > 0.0:
+        if self.metrics.t_start is not None and timeout_s > 0.0:
             elapsed = (now - self.metrics.t_start).nanoseconds * 1e-9
-            if elapsed >= self.dock_timeout_s:
+            if elapsed >= timeout_s:
                 self.metrics.t_end = now
                 self.metrics.result_status = GoalStatus.STATUS_ABORTED
-                self.metrics.goal_x = dock_pose[0]
-                self.metrics.goal_y = dock_pose[1]
-                self.metrics.goal_yaw = dock_pose[2]
-                self.metrics.dock_tf_x = dock_pose[0]
-                self.metrics.dock_tf_y = dock_pose[1]
-                self.metrics.dock_tf_yaw = dock_pose[2]
+                if source == "dock_pose":
+                    self.metrics.dock_tf_x = target_x
+                    self.metrics.dock_tf_y = target_y
+                    self.metrics.dock_tf_yaw = target_yaw
                 self.metrics.final_dx = dx
                 self.metrics.final_dy = dy
                 self.metrics.final_dist = dist
-                self.metrics.final_dyaw = angle_wrap(dock_pose[2] - ryaw)
-                self.metrics.along_track = math.cos(dock_pose[2]) * dx + math.sin(dock_pose[2]) * dy
-                self.metrics.cross_track = -math.sin(dock_pose[2]) * dx + math.cos(dock_pose[2]) * dy
+                self.metrics.final_dyaw = angle_wrap(target_yaw - ryaw)
+                self.metrics.along_track = math.cos(target_yaw) * dx + math.sin(target_yaw) * dy
+                self.metrics.cross_track = -math.sin(target_yaw) * dx + math.cos(target_yaw) * dy
                 self.metrics.active = False
                 self.get_logger().warn(
-                    f"Dock listen-only timeout after {elapsed:.1f}s: dist={dist:.3f}m yaw_err={math.degrees(dyaw):.2f}deg"
+                    f"{timeout_msg} after {elapsed:.1f}s: dist={dist:.3f}m yaw_err={math.degrees(dyaw):.2f}deg"
                 )
                 self.finalize_run_output()
 
@@ -1153,9 +1232,6 @@ class Nav2GoalMetrics(Node):
         dock_pose = self.lookup_frame_pose_map(self.dock_tf_frame)
 
         if dock_pose is not None:
-            self.metrics.goal_x = dock_pose[0]
-            self.metrics.goal_y = dock_pose[1]
-            self.metrics.goal_yaw = dock_pose[2]
             self.metrics.dock_tf_x = dock_pose[0]
             self.metrics.dock_tf_y = dock_pose[1]
             self.metrics.dock_tf_yaw = dock_pose[2]
@@ -1178,8 +1254,19 @@ class Nav2GoalMetrics(Node):
     def finalize_run_output(self):
         """Generate image and print summary for action result and listen-only completion."""
         self.metrics.path_len_tf_m = self._compute_tf_trajectory_path_length()
-        target_pose = self._target_pose_for_error()
-        self._fill_final_error_from_last_trajectory(target_pose)
+        self._recompute_final_error_against_goal_target()
+
+        dock_tf_closeness_dist = None
+        dock_tf_closeness_dyaw_deg = None
+        robot_final_pose = self._robot_final_pose_for_metrics()
+        dock_tf_pose = self._dock_tf_pose_for_closeness()
+        if dock_tf_pose is not None and robot_final_pose is not None:
+            tx, ty, tyaw = dock_tf_pose
+            rx, ry, ryaw = robot_final_pose
+            dx_tf = tx - rx
+            dy_tf = ty - ry
+            dock_tf_closeness_dist = hypot2(dx_tf, dy_tf)
+            dock_tf_closeness_dyaw_deg = math.degrees(angle_wrap(tyaw - ryaw))
 
         if self.visualizer and len(self.metrics.trajectory_points) > 0:
             status_str = {
@@ -1211,7 +1298,14 @@ class Nav2GoalMetrics(Node):
             ratio = effective_path / self.metrics.straight_line_dist
             ratio_src = "odom" if self.metrics.path_len_m > 0.0 else "tf"
 
-        self._write_csv_outputs(status_str, dt, ratio, ratio_src)
+        self._write_csv_outputs(
+            status_str,
+            dt,
+            ratio,
+            ratio_src,
+            dock_tf_closeness_dist,
+            dock_tf_closeness_dyaw_deg,
+        )
 
         print("\n" + "=" * 60)
         print(f"RUN {self.metrics.run_id} RESULT: {status_str}")
@@ -1261,9 +1355,10 @@ class Nav2GoalMetrics(Node):
         if self.metrics.image_path:
             print(f"Trajectory image     : {self.metrics.image_path}")
 
-        if self.metrics.final_dist is not None and self.metrics.final_dyaw is not None:
-            label = "Dock TF closeness" if (self.metrics.dock_tf_x is not None and self.metrics.dock_tf_y is not None) else "Target closeness"
-            print(f"{label:<20}: dist={self.metrics.final_dist:.3f} m  yaw={math.degrees(self.metrics.final_dyaw):.2f} deg")
+        if dock_tf_closeness_dist is not None and dock_tf_closeness_dyaw_deg is not None:
+            print(f"{'Dock TF closeness':<20}: dist={dock_tf_closeness_dist:.3f} m  yaw={dock_tf_closeness_dyaw_deg:.2f} deg")
+        else:
+            print(f"{'Dock TF closeness':<20}: (dock_tf unavailable)")
 
         if self.metrics.along_track is not None:
             print("Dock frame error:")

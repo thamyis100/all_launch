@@ -29,7 +29,7 @@ class ControllerSwitcher(Node):
         self.last_m = float(os.getenv("LAST_M", "2.0"))
         self.feedback_timeout_s = float(os.getenv("FEEDBACK_TIMEOUT_S", "5.0"))
 
-        self.odom_topic = os.getenv("ODOM_TOPIC", "/odom")
+        self.odom_topic = os.getenv("ODOM_TOPIC", "/mecanum_controller/odometry")
 
         self.cur_xy = None
         self.prev_xy = None

@@ -69,7 +69,7 @@ def generate_launch_description():
         ),
         DeclareLaunchArgument(
             "params_file",
-            default_value=os.path.join(all_launch_share, "config", "mppi.yaml"),
+            default_value=os.path.join(all_launch_share, "config", "mppi_v2.yaml"),
             description="Full path to the Nav2 parameters file",
         ),
         DeclareLaunchArgument(

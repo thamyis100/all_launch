@@ -115,7 +115,7 @@ def generate_launch_description():
         static_tf_node,
         slam_node,
         
-        controller_switcher,
+        # controller_switcher,
         mppi,
         robot_sim,
         rviz_node,

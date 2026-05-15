@@ -26,12 +26,12 @@ def generate_launch_description():
     ld.add_action(DeclareLaunchArgument(
         'use_sim_time', default_value='False', description='Use simulation time'))
 
-    ld.add_action(DeclareLaunchArgument(
-        'params_file', default_value='/home/mobimobi/thamyis/robot_TA_ws/src/all_launch/config/nav2_params_new_yoga.yaml',
-        description='Full path to Nav2 params file'))
+    # ld.add_action(DeclareLaunchArgument(
+    #     'params_file', default_value='/home/mobimobi/thamyis/robot_TA_ws/src/all_launch/config/nav2_params_new_yoga.yaml',
+    #     description='Full path to Nav2 params file'))
 
     use_sim_time = LaunchConfiguration('use_sim_time')
-    params_file = LaunchConfiguration('params_file')
+    # params_file = LaunchConfiguration('params_file')
 
     # # Include the Nav2 bringup navigation_launch.py and forward params_file + use_sim_time
     # try:

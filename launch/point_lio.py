@@ -24,7 +24,7 @@ def generate_launch_description():
         package='tf2_ros',
         executable='static_transform_publisher',
         name='laser_frame_to_base_link',
-        arguments=['-0.24', '0', '0', '0', '0', '0', 'laser_frame', 'base_link'],
+        arguments=['-0.35', '0', '0', '0', '0', '0', 'laser_frame', 'base_link'],
         parameters=[{'use_sim_time': use_sim_time}],
         output='screen'
     )
@@ -61,7 +61,7 @@ def generate_launch_description():
 
     # slam_toolbox
     try:
-        slam_params = '/home/mobimobi/thamyis/robot_TA_ws/src/all_launch/config/mapper_params_online_async.yaml'
+        slam_params = '/home/mobimobi/Desktop/TayoAMR/src/all_launch/config/mapper_params_online_async.yaml'
         slam_node = Node(
             package='slam_toolbox',
             executable='async_slam_toolbox_node',

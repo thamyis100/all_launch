@@ -45,6 +45,12 @@ install(DIRECTORY launch
   DESTINATION share/${PROJECT_NAME}
 )
 
+# Ensure newly-added launch files are installed even without CMake reconfigure
+install(FILES
+  launch/mppi_v2.py
+  DESTINATION share/${PROJECT_NAME}/launch
+)
+
 install(DIRECTORY config
   DESTINATION share/${PROJECT_NAME}
 )

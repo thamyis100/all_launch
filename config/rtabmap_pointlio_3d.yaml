@@ -1,0 +1,66 @@
+rtabmap:
+  ros__parameters:
+
+    use_sim_time: false
+
+    publish_tf: true
+
+    frame_id: base_link
+    odom_frame_id: odom
+    map_frame_id: map
+
+    subscribe_odom: true
+    subscribe_scan_cloud: true
+
+    subscribe_rgb: false
+    subscribe_depth: false
+    subscribe_stereo: false
+    subscribe_scan: false
+
+    approx_sync: true
+    sync_queue_size: 100
+
+    #
+    # ===== GRID MAP =====
+    #
+
+    Grid/3D: "true"
+    Grid/FromDepth: "false"
+
+    Grid/CellSize: "0.05"
+
+    Grid/RangeMax: "15.0"
+
+    Grid/RayTracing: "true"
+
+    Grid/GroundIsObstacle: "false"
+
+    Grid/FlatObstacleDetected: "true"
+
+    Grid/NormalsSegmentation: "false"
+
+    Grid/MaxGroundHeight: "0.15"
+
+    Grid/MinObstacleHeight: "0.20"
+
+    Grid/MaxObstacleHeight: "2.0"
+
+    Grid/Scan2dUnknownSpaceFilled: "true"
+
+    #
+    # ===== ICP =====
+    #
+
+    Reg/Strategy: "1"
+
+    Icp/VoxelSize: "0.1"
+
+    Icp/PointToPlane: "true"
+
+    Icp/Iterations: "25"
+
+    Icp/MaxCorrespondenceDistance: "0.25"
+
+    Icp/CorrespondenceRatio: "0.2"
+
+    Icp/OutlierRatio: "0.7"

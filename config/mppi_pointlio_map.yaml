@@ -1,0 +1,238 @@
+# Nav2 + MPPI for Point-LIO with a real map frame (RTAB-Map publishes map->odom)
+# No LaserScan. Costmaps use PointCloud2 directly.
+
+controller_server:
+  ros__parameters:
+    use_sim_time: false
+    odom_topic: "/odom"
+    controller_frequency: 20.0
+
+    min_x_velocity_threshold: 0.001
+    min_y_velocity_threshold: 0.001
+    min_theta_velocity_threshold: 0.001
+    failure_tolerance: 0.5
+
+    progress_checker_plugin: "progress_checker"
+    goal_checker_plugins: ["general_goal_checker"]
+    controller_plugins: ["FollowPath"]
+
+    progress_checker:
+      plugin: "nav2_controller::SimpleProgressChecker"
+      required_movement_radius: 0.10
+      movement_time_allowance: 25.0
+
+    general_goal_checker:
+      plugin: "nav2_controller::SimpleGoalChecker"
+      xy_goal_tolerance: 0.15
+      yaw_goal_tolerance: 0.15
+      stateful: true
+
+    FollowPath:
+      plugin: "nav2_mppi_controller::MPPIController"
+      motion_model: Omni
+      iteration_count: 1
+      batch_size: 1500
+      time_steps: 40
+      model_dt: 0.05
+      prune_distance: 2.0
+      temperature: 0.60
+      gamma: 0.040
+      regenerate_noises: false
+      reset_period: 1.0
+      retry_attempt_limit: 1
+
+      vx_max: 0.6
+      vx_min: -0.4
+      vy_max: 0.6
+      wz_max: 1.8
+
+      vx_std: 0.20
+      vy_std: 0.20
+      wz_std: 0.45
+
+      ax_max: 2.5
+      ax_min: -2.5
+      ay_max: 2.5
+      ay_min: -2.5
+      az_max: 3.2
+
+      visualize: false
+      publish_optimal_trajectory: false
+      publish_critics_stats: false
+
+      critics: ["ObstaclesCritic", "PathFollowCritic", "GoalCritic", "GoalAngleCritic", "VelocityDeadbandCritic", "TwirlingCritic"]
+
+      ObstaclesCritic:
+        enabled: true
+        consider_footprint: true
+        repulsion_weight: 2.5
+        critical_weight: 40.0
+        cost_power: 1
+        collision_cost: 100000.0
+        collision_margin_distance: 0.12
+        cost_scaling_factor: 2.5
+
+      PathFollowCritic:
+        enabled: true
+        cost_weight: 6.0
+        cost_power: 1
+        threshold_to_consider: 1.4
+        offset_from_furthest: 20
+
+      GoalCritic:
+        enabled: true
+        cost_power: 1
+        cost_weight: 5.0
+        threshold_to_consider: 2.0
+
+      GoalAngleCritic:
+        enabled: true
+        cost_weight: 3.0
+        threshold_to_consider: 2.0
+
+      VelocityDeadbandCritic:
+        enabled: true
+        cost_weight: 30.0
+        cost_power: 1
+        deadband_velocities: [0.05, 0.03, 0.08]
+
+      TwirlingCritic:
+        cost_weight: 2.0
+
+planner_server:
+  ros__parameters:
+    use_sim_time: false
+    planner_plugins: ["GridBased"]
+    GridBased:
+      plugin: "nav2_smac_planner/SmacPlanner2D"
+      use_holonomic_motion: true
+      allow_unknown: true
+      costmap_downsampling: 1
+      max_iterations: 50000
+      max_planning_time: 1.0
+      allow_initial_traversal: false
+
+bt_navigator:
+  ros__parameters:
+    use_sim_time: false
+    global_frame: map
+    robot_base_frame: base_link
+    odom_topic: /odom
+
+velocity_smoother:
+  ros__parameters:
+    use_sim_time: false
+    smoothing_frequency: 20.0
+    scale_velocities: false
+    feedback: "OPEN_LOOP"
+    max_velocity: [0.6, 0.6, 1.8]
+    min_velocity: [-0.4, -0.4, -1.8]
+    max_accel: [2.5, 2.5, 3.2]
+    max_decel: [-2.5, -2.5, -3.2]
+    odom_topic: "/odom"
+    odom_duration: 0.1
+    deadband_velocity: [0.0, 0.0, 0.0]
+    velocity_timeout: 1.0
+
+# Global costmap in map frame (requires TF map->odom from RTAB-Map)
+global_costmap:
+  global_costmap:
+    ros__parameters:
+      use_sim_time: false
+      global_frame: map
+      robot_base_frame: base_link
+      rolling_window: true
+      width: 30
+      height: 30
+      resolution: 0.05
+      footprint_padding: 0.05
+      footprint: "[[0.46, 0.26], [0.46, -0.26], [-0.46, -0.26], [-0.46, 0.26]]"
+      update_frequency: 1.0
+      publish_frequency: 1.0
+      transform_tolerance: 0.5
+      plugins: ["voxel_layer", "inflation_layer"]
+
+      voxel_layer:
+        plugin: "nav2_costmap_2d::VoxelLayer"
+        enabled: true
+        publish_voxel_map: false
+        # Nav2 VoxelLayer supports up to 16 z-voxels. Use a larger z_resolution
+        # and a lower origin_z so negative base_link Z stays within bounds.
+        origin_z: -2.0
+        z_resolution: 0.2
+        z_voxels: 16
+        max_obstacle_height: 2.0
+        unknown_threshold: 15
+        mark_threshold: 0
+        observation_sources: pointlio
+        pointlio:
+          topic: /cloud_registered
+          sensor_frame: base_link
+          data_type: "PointCloud2"
+          marking: true
+          clearing: true
+          obstacle_max_range: 6.0
+          obstacle_min_range: 0.0
+          raytrace_max_range: 8.0
+          raytrace_min_range: 0.0
+          # Filter points by height to get a cleaner 2D navigation map
+          max_obstacle_height: 0.3
+          min_obstacle_height: 0.25
+
+      inflation_layer:
+        plugin: "nav2_costmap_2d::InflationLayer"
+        enabled: true
+        inflation_radius: 0.75
+        cost_scaling_factor: 3.0
+
+      always_send_full_costmap: true
+
+# Local costmap stays in odom for stable control
+local_costmap:
+  local_costmap:
+    ros__parameters:
+      use_sim_time: false
+      global_frame: odom
+      robot_base_frame: base_link
+      rolling_window: true
+      width: 8
+      height: 8
+      resolution: 0.05
+      footprint_padding: 0.05
+      footprint: "[[0.46, 0.26], [0.46, -0.26], [-0.46, -0.26], [-0.46, 0.26]]"
+      update_frequency: 5.0
+      publish_frequency: 2.0
+      transform_tolerance: 0.5
+      plugins: ["voxel_layer", "inflation_layer"]
+
+      voxel_layer:
+        plugin: "nav2_costmap_2d::VoxelLayer"
+        enabled: true
+        publish_voxel_map: false
+        origin_z: -2.0
+        z_resolution: 0.2
+        z_voxels: 16
+        max_obstacle_height: 2.0
+        unknown_threshold: 15
+        mark_threshold: 0
+        observation_sources: pointlio
+        pointlio:
+          topic: /cloud_registered
+          sensor_frame: base_link
+          data_type: "PointCloud2"
+          marking: true
+          clearing: true
+          obstacle_max_range: 6.0
+          obstacle_min_range: 0.0
+          raytrace_max_range: 8.0
+          raytrace_min_range: 0.0
+          max_obstacle_height: 0.3
+          min_obstacle_height: 0.25
+
+      inflation_layer:
+        plugin: "nav2_costmap_2d::InflationLayer"
+        enabled: true
+        inflation_radius: 0.75
+        cost_scaling_factor: 3.0
+
+      always_send_full_costmap: true

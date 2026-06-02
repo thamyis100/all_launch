@@ -371,7 +371,7 @@ local_costmap:
 
 bt_navigator:
   ros__parameters:
-    default_nav_to_pose_bt_xml: "/home/thamyis/SLAM_ws/src/all_launch/config/omni_diff_omni.xml"
+    default_nav_to_pose_bt_xml: "/home/mobimobi/Desktop/TayoAMR/src/all_launch/config/omni_diff_omni.xml"
     # default_nav_through_poses_bt_xml: "/home/thamyis/SLAM_ws/src/all_launch/config/omni_diff_omni_through.xml"
     goal_reached_tol: 2.0
 

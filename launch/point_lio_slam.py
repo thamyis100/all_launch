@@ -39,7 +39,7 @@ def generate_launch_description():
         name='laser_frame_to_base_link',
         arguments=[
             '-0.24', '0', '0',
-            '3.1415926535', '0', '0',
+            '0', '3.1415926535', '0',
             'laser_frame', 'base_link'
         ],
         parameters=[{'use_sim_time': use_sim_time}],

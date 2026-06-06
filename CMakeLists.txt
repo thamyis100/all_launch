@@ -75,7 +75,7 @@ install(PROGRAMS
   scripts/apriltag_dock_pose_publisher.py
   scripts/camera_sync_republisher.py
   scripts/logitech_camera_publisher.py
-  DESTINATION lib/${PROJECT_NAME}
+  DESTINATION share/${PROJECT_NAME}/scripts
 )
 
 install(TARGETS all_launch_rviz_plugins

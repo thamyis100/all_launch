@@ -73,16 +73,16 @@ def generate_launch_description():
     except Exception as e:
         print(f"WARNING: could not create slam_toolbox node: {e}")
 
-    # RViz2 node running with the Nav2 default view
-    rviz_config = '/home/mobimobi/Desktop/TayoAMR/person.rviz'
-    rviz_node = Node(
-        package='rviz2',
-        executable='rviz2',
-        name='rviz2',
-        output='screen',
-        arguments=['-d', rviz_config],
-        parameters=[{'use_sim_time': use_sim_time}],
-    )
-    ld.add_action(rviz_node)
+    # # RViz2 node running with the Nav2 default view
+    # rviz_config = '/home/mobimobi/Desktop/TayoAMR/person.rviz'
+    # rviz_node = Node(
+    #     package='rviz2',
+    #     executable='rviz2',
+    #     name='rviz2',
+    #     output='screen',
+    #     arguments=['-d', rviz_config],
+    #     parameters=[{'use_sim_time': use_sim_time}],
+    # )
+    # ld.add_action(rviz_node)
 
     return ld

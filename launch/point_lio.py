@@ -24,7 +24,7 @@ def generate_launch_description():
         package='tf2_ros',
         executable='static_transform_publisher',
         name='laser_frame_to_base_link',
-        arguments=['-0.35', '0', '0', '0', '0', '0', 'laser_frame', 'base_link'],
+        arguments=['-0.35', '0', '0', '0', '0', '3.1415926535', 'laser_frame', 'base_link'],
         parameters=[{'use_sim_time': use_sim_time}],
         output='screen'
     )

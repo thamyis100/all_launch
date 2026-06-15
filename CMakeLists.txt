@@ -17,10 +17,12 @@ find_package(pluginlib REQUIRED)
 find_package(rclpy REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(rviz_common REQUIRED)
+find_package(rviz_default_plugins REQUIRED)
 find_package(std_msgs REQUIRED)
 
 add_library(all_launch_rviz_plugins SHARED
   src/docking_panel.cpp
+  src/dock_pose_tool.cpp
 )
 target_include_directories(all_launch_rviz_plugins PUBLIC
   include
@@ -33,6 +35,7 @@ ament_target_dependencies(all_launch_rviz_plugins
   pluginlib
   rclcpp
   rviz_common
+  rviz_default_plugins
   std_msgs
 )
 
@@ -41,6 +44,7 @@ pluginlib_export_plugin_description_file(rviz_common plugins_description.xml)
 install(DIRECTORY launch
   DESTINATION share/${PROJECT_NAME}
 )
+
 
 install(DIRECTORY config
   DESTINATION share/${PROJECT_NAME}
@@ -62,9 +66,11 @@ install(PROGRAMS
   scripts/controller_switcher.py
   scripts/dock_pose_bridge.py
   scripts/nav2_goal_metrics.py
+  scripts/qwen.py
   scripts/apriltag_dock_pose_publisher.py
   scripts/camera_sync_republisher.py
   scripts/logitech_camera_publisher.py
+  DESTINATION share/${PROJECT_NAME}/scripts
   DESTINATION lib/${PROJECT_NAME}
 )
 
@@ -93,6 +99,7 @@ ament_export_dependencies(
   pluginlib
   rclcpp
   rviz_common
+  rviz_default_plugins
   std_msgs
 )
 

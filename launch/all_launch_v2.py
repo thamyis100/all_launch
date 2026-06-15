@@ -34,7 +34,7 @@ def generate_launch_description():
     ))
 
     ld.add_action(DeclareLaunchArgument(
-        'point_lio_launch', default_value='point_lio.py',
+        'point_lio_launch', default_value='fast_lio.py',
         description='Launch filename inside all_launch/launch'
     ))
 

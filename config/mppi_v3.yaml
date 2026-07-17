@@ -37,8 +37,8 @@ controller_server:
       prune_distance: 2.0
 
       # Selectiveness (lower = more decisive toward best trajectories) :contentReference[oaicite:2]{index=2}
-      temperature: 0.60
-      gamma: 0.040                # default smoothness/energy tradeoff :contentReference[oaicite:3]{index=3}
+      temperature: 0.18
+      gamma: 0.015                # default smoothness/energy tradeoff :contentReference[oaicite:3]{index=3}
 
       # Reduce run-time compute jitter from resampling noises :contentReference[oaicite:4]{index=4}
       regenerate_noises: false
@@ -48,15 +48,15 @@ controller_server:
       retry_attempt_limit: 1
 
       # --- Command limits (targets) ---
-      vx_max: 5.0
+      vx_max: 0.6
       vx_min: -0.40       # limit reversing to reduce indecision (more "straight forward")
-      vy_max: 5.0
-      wz_max: 3.5
+      vy_max: 0.6
+      wz_max: 1.8
 
       # --- Sampling std devs (too high => dithering/hesitation) ---
-      vx_std: 0.50
-      vy_std: 0.50
-      wz_std: 1.20
+      vx_std: 0.20
+      vy_std: 0.20
+      wz_std: 0.45
 
       # --- Accel limits ---
       ax_max: 2.5
@@ -144,18 +144,18 @@ controller_server:
       batch_size: 2000
       vx_std: 0.2
       vy_std: 0.2
-      wz_std: 0.8
-      vx_max: 5.0
+      wz_std: 0.4
+      vx_max: 1.0
       vx_min: -0.2
       vy_max: 0.0
-      wz_max: 3.5
+      wz_max: 1.9
       ax_max: 3.0
       ax_min: -3.0
       ay_min: -3.0
       ay_max: 3.0
       az_max: 3.5
       iteration_count: 1
-      temperature: 0.20
+      temperature: 0.30
       gamma: 0.015
       motion_model: "DiffDrive"
       visualize: false
@@ -444,8 +444,8 @@ velocity_smoother:
     smoothing_frequency: 20.0
     scale_velocities: false
     feedback: "OPEN_LOOP"
-    max_velocity: [5.0, 5.0, 3.5]
-    min_velocity: [-5.0, -5.0, -3.5]
+    max_velocity: [1.0, 1.0, 1.8]
+    min_velocity: [-1.0, -1.0, -1.8]
     max_accel: [2.5, 2.5, 3.2]
     max_decel: [-2.5, -2.5, -3.2]
     odom_topic: "/odom"
@@ -464,7 +464,6 @@ docking_server:
     undock_linear_tolerance: 0.05
     undock_angular_tolerance: 0.10
     max_retries: 3
-    dock_backwards: true
     base_frame: "base_link"
     fixed_frame: "odom"
     odom_topic: "odom"
@@ -474,21 +473,21 @@ docking_server:
 
     dock_plugins: ["simple_charging_dock"]
     simple_charging_dock:
-      dock_direction: "backward"
+      dock_direction: "forward"
       plugin: "opennav_docking::SimpleChargingDock"
-      docking_threshold: 0.8
-      staging_x_offset: 0.80
+      docking_threshold: 0.05
+      staging_x_offset: -0.80
       staging_yaw_offset: 0.0
       use_external_detection_pose: true
       subscribe_toggle: false
       use_battery_status: false
       use_stall_detection: false
       external_detection_timeout: 2.5
-      external_detection_translation_x: -0.2
+      external_detection_translation_x: -0.7
       external_detection_translation_y: 0.0
       external_detection_rotation_roll: -1.57
       external_detection_rotation_pitch: -1.57
-      external_detection_rotation_yaw: 0.0
+      external_detection_rotation_yaw: 3.14
       filter_coef: 0.2
 
     docks: ["dummy_dock"]

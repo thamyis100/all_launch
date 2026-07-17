@@ -119,7 +119,6 @@ class RunMetrics:
     final_dyaw: Optional[float] = None
     # Status
     result_status: Optional[int] = None
-    
     # =========================================================================
     # NEW: TRAJECTORY VISUALIZATION DATA
     # =========================================================================
@@ -140,29 +139,31 @@ class RunMetrics:
 # ============================================================================
 class TrajectoryVisualizer:
     """Generates static trajectory visualization images with obstacles"""
-    
-    def __init__(self, output_dir: str = "./trajectory_images"):
+    def __init__(self, output_dir: str = "./trajectory_images", footprint: list = None):
         self.output_dir = output_dir
+        # Default to the larger robot footprint as requested
+        if footprint is None:
+            self.footprint = [[0.46, 0.26], [0.46, -0.26], [-0.46, -0.26], [-0.46, 0.26]]
+        else:
+            self.footprint = footprint
         os.makedirs(output_dir, exist_ok=True)
-    
-    def generate_static_image(self, metrics: RunMetrics, 
-                             title: str = "Nav2 Navigation Trajectory",
-                             show_heading: bool = True,
-                             show_goal: bool = True,
-                             show_obstacles: bool = True,
-                             figsize: tuple = (14, 10),
-                             dpi: int = 300) -> Optional[str]:
+
+    def generate_static_image(self, metrics: RunMetrics,
+                              title: str = "Nav2 Navigation Trajectory",
+                              show_heading: bool = True,
+                              show_goal: bool = True,
+                              show_obstacles: bool = True,
+                              figsize: tuple = (14, 10),
+                              dpi: int = 300) -> Optional[str]:
         """Generate static trajectory visualization image with obstacles"""
-        
         if not VISUALIZATION_AVAILABLE:
             return None
-        
         if len(metrics.trajectory_points) < 2:
             return None
-        
+
         # Create figure
         fig, ax = plt.subplots(1, 1, figsize=figsize)
-        
+
         # 1️⃣ Draw obstacle points from laser scans
         if show_obstacles and len(metrics.scan_obstacles) > 0:
             all_obstacle_x = []
@@ -171,97 +172,115 @@ class TrajectoryVisualizer:
                 obstacles = scan_data.get('obstacles', {'x': [], 'y': []})
                 all_obstacle_x.extend(obstacles['x'])
                 all_obstacle_y.extend(obstacles['y'])
-            
             if all_obstacle_x:
-                ax.scatter(all_obstacle_x, all_obstacle_y, c='gray', s=10, 
-                          alpha=0.5, label='Obstacles (Laser Scan)', zorder=1)
-        
+                ax.scatter(all_obstacle_x, all_obstacle_y, c='gray', s=10,
+                           alpha=0.5, label='Obstacles (Laser Scan)', zorder=1)
+
         # Extract trajectory data
         x_coords = [p['x'] for p in metrics.trajectory_points]
         y_coords = [p['y'] for p in metrics.trajectory_points]
         yaws = [p.get('yaw', 0) for p in metrics.trajectory_points]
-        
+
         # 2️⃣ Draw trajectory path (controller-colored when available)
         controller_tags = [p.get('controller', 'unknown') for p in metrics.trajectory_points]
         self._plot_controller_colored_trajectory(ax, x_coords, y_coords, controller_tags)
-        
-        # 3️⃣ Draw start point
+
+        # 3️⃣ Draw start point and footprint
         if metrics.start_x is not None:
             ax.plot(metrics.start_x, metrics.start_y, 'go', markersize=12,
-                   label='Start', markeredgecolor='darkgreen', markeredgewidth=2, zorder=3)
+                    label='Start', markeredgecolor='darkgreen', markeredgewidth=2, zorder=3)
+            self._draw_footprint(ax, metrics.start_x, metrics.start_y, metrics.start_yaw or 0.0, 
+                                 self.footprint, color='green', alpha=0.3, label='Start Footprint')
         elif len(x_coords) > 0:
             ax.plot(x_coords[0], y_coords[0], 'go', markersize=12,
-                   label='Start', markeredgecolor='darkgreen', markeredgewidth=2, zorder=3)
-        
-        # Draw final robot position
+                    label='Start', markeredgecolor='darkgreen', markeredgewidth=2, zorder=3)
+            self._draw_footprint(ax, x_coords[0], y_coords[0], yaws[0], 
+                                 self.footprint, color='green', alpha=0.3, label='Start Footprint')
+
+        # Draw final robot position and footprint
         if len(x_coords) > 0:
             ax.plot(x_coords[-1], y_coords[-1], 'rs', markersize=10,
-                   label='Robot Final', markeredgecolor='darkred', markeredgewidth=2, zorder=3)
-        
+                    label='Robot Final', markeredgecolor='darkred', markeredgewidth=2, zorder=3)
+            self._draw_footprint(ax, x_coords[-1], y_coords[-1], yaws[-1], 
+                                 self.footprint, color='red', alpha=0.3, label='Final Footprint')
+
         # 4️⃣ Draw goal pose target and docking references
         if show_goal:
-            # Goal marker always reflects requested goal topic pose (/goal_pose or /dock_pose).
             goal_plot_x = metrics.goal_x
             goal_plot_y = metrics.goal_y
             goal_plot_yaw = metrics.goal_yaw
-
-            # Goal/dock_pose target marker
+            
             ax.plot(goal_plot_x, goal_plot_y, marker='D', linestyle='None',
-                   markersize=10, color='deepskyblue', markeredgecolor='navy',
-                   markeredgewidth=1.5, label='Goal Pose Target', zorder=3)
-
+                    markersize=10, color='deepskyblue', markeredgecolor='navy',
+                    markeredgewidth=1.5, label='Goal Pose Target', zorder=3)
             goal_dx = 0.45 * math.cos(goal_plot_yaw)
             goal_dy = 0.45 * math.sin(goal_plot_yaw)
             ax.arrow(goal_plot_x, goal_plot_y, goal_dx, goal_dy,
                      head_width=0.10, head_length=0.14, fc='deepskyblue', ec='deepskyblue',
                      alpha=0.85, linewidth=2.0, zorder=3)
 
-            # Live dock tag TF marker (dock_tag frame) if available
             if metrics.dock_tf_x is not None and metrics.dock_tf_y is not None:
                 dock_tf_yaw = metrics.dock_tf_yaw if metrics.dock_tf_yaw is not None else metrics.goal_yaw
                 ax.plot(metrics.dock_tf_x, metrics.dock_tf_y, marker='*', linestyle='None',
-                       markersize=20, color='magenta', markeredgecolor='purple',
-                       markeredgewidth=2.0, label='Dock Tag TF', zorder=4)
-
+                        markersize=20, color='magenta', markeredgecolor='purple',
+                        markeredgewidth=2.0, label='Dock Tag TF', zorder=4)
                 dock_dx = 0.6 * math.cos(dock_tf_yaw)
                 dock_dy = 0.6 * math.sin(dock_tf_yaw)
                 ax.arrow(metrics.dock_tf_x, metrics.dock_tf_y, dock_dx, dock_dy,
-                        head_width=0.12, head_length=0.18, fc='purple', ec='purple',
-                        alpha=0.9, linewidth=2.5, zorder=4)
+                         head_width=0.12, head_length=0.18, fc='purple', ec='purple',
+                         alpha=0.9, linewidth=2.5, zorder=4)
 
-        
         # 5️⃣ Draw heading arrows along trajectory
         if show_heading and len(yaws) > 0:
             skip_rate = max(1, len(metrics.trajectory_points) // 25)
             for i in range(0, len(metrics.trajectory_points), skip_rate):
                 p = metrics.trajectory_points[i]
                 self._draw_heading_arrow(ax, p['x'], p['y'], p.get('yaw', 0),
-                                        length=0.3, color='orange', alpha=0.6, zorder=2)
-        
+                                         length=0.3, color='orange', alpha=0.6, zorder=2)
+
         # 6️⃣ Formatting
         ax.set_xlabel('X Position (m)', fontsize=11)
         ax.set_ylabel('Y Position (m)', fontsize=11)
         ax.set_title(title, fontsize=13, fontweight='bold')
         ax.grid(True, alpha=0.3, linestyle='--')
         ax.set_aspect('equal')
-        
-        # Auto-scale with margin
+
+        # Auto-scale with increased margin to accommodate larger robot footprint and laser scans
         if x_coords and y_coords:
-            margin = 1.0
-            ax.set_xlim(min(x_coords) - margin, max(x_coords) + margin)
-            ax.set_ylim(min(y_coords) - margin, max(y_coords) + margin)
-        
+            margin = 2.5  # Increased from 1.0 to ensure laser scans are visible
+            min_x = min(x_coords)
+            max_x = max(x_coords)
+            min_y = min(y_coords)
+            max_y = max(y_coords)
+            
+            # Include obstacles in axis limits to ensure they are visible despite larger robot size
+            if show_obstacles and len(metrics.scan_obstacles) > 0:
+                all_obstacle_x = []
+                all_obstacle_y = []
+                for scan_data in metrics.scan_obstacles:
+                    obstacles = scan_data.get('obstacles', {'x': [], 'y': []})
+                    all_obstacle_x.extend(obstacles['x'])
+                    all_obstacle_y.extend(obstacles['y'])
+                if all_obstacle_x:
+                    min_x = min(min_x, min(all_obstacle_x))
+                    max_x = max(max_x, max(all_obstacle_x))
+                    min_y = min(min_y, min(all_obstacle_y))
+                    max_y = max(max_y, max(all_obstacle_y))
+                    
+            ax.set_xlim(min_x - margin, max_x + margin)
+            ax.set_ylim(min_y - margin, max_y + margin)
+
         # Legend
         handles, labels = ax.get_legend_handles_labels()
         if handles:
             ax.legend(handles, labels, loc='best', fontsize=9, framealpha=0.9)
-        
+
         # Statistics overlay
         stats_text = self._generate_statistics_text(metrics)
         props = dict(boxstyle='round', facecolor='white', alpha=0.85, edgecolor='gray')
         ax.text(0.02, 0.98, stats_text, transform=ax.transAxes, fontsize=9,
-               verticalalignment='top', bbox=props, fontfamily='monospace', zorder=4)
-        
+                verticalalignment='top', bbox=props, fontfamily='monospace', zorder=4)
+
         # Save image
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
         status_str = {
@@ -269,37 +288,51 @@ class TrajectoryVisualizer:
             GoalStatus.STATUS_ABORTED: "ABORTED",
             GoalStatus.STATUS_CANCELED: "CANCELED",
         }.get(metrics.result_status, "UNKNOWN")
-        
         filename = f"trajectory_run{metrics.run_id}_{status_str}_{timestamp}.png"
         filepath = os.path.join(self.output_dir, filename)
-        
         plt.tight_layout()
         plt.savefig(filepath, dpi=dpi, bbox_inches='tight', facecolor='white')
         plt.close()
-        
         metrics.image_path = filepath
         return filepath
-    
+
+    def _draw_footprint(self, ax, cx: float, cy: float, yaw: float, footprint: list, 
+                        color: str = 'blue', alpha: float = 0.4, label: str = None):
+        """Draw robot footprint polygon at a given pose."""
+        if not footprint:
+            return
+        poly_x = []
+        poly_y = []
+        cos_yaw = math.cos(yaw)
+        sin_yaw = math.sin(yaw)
+        for px, py in footprint:
+            rx = cx + px * cos_yaw - py * sin_yaw
+            ry = cy + px * sin_yaw + py * cos_yaw
+            poly_x.append(rx)
+            poly_y.append(ry)
+        # Close the polygon
+        poly_x.append(poly_x[0])
+        poly_y.append(poly_y[0])
+        ax.plot(poly_x, poly_y, color=color, alpha=alpha, linewidth=2, label=label)
+
     def _draw_heading_arrow(self, ax, x: float, y: float, yaw: float,
-                           length: float = 0.3, color: str = 'orange',
-                           alpha: float = 0.6, zorder: int = 2):
+                            length: float = 0.3, color: str = 'orange',
+                            alpha: float = 0.6, zorder: int = 2):
         """Draw a heading arrow at position"""
         dx = length * math.cos(yaw)
         dy = length * math.sin(yaw)
         ax.arrow(x, y, dx, dy, head_width=0.06, head_length=0.09,
-                fc=color, ec=color, alpha=alpha, linewidth=1.5, zorder=zorder)
+                 fc=color, ec=color, alpha=alpha, linewidth=1.5, zorder=zorder)
 
     def _plot_controller_colored_trajectory(self, ax, x_coords, y_coords, controller_tags):
         """Plot trajectory segments with colors based on controller source."""
         if len(x_coords) < 2:
             return
-
         color_map = {
             'mppi': ('royalblue', 'Trajectory (MPPI)'),
             'docking_server': ('crimson', 'Trajectory (Docking Server)'),
             'unknown': ('royalblue', 'Trajectory'),
         }
-
         shown_labels = set()
         for i in range(1, len(x_coords)):
             tag = controller_tags[i] if i < len(controller_tags) else 'unknown'
@@ -315,20 +348,18 @@ class TrajectoryVisualizer:
                 zorder=2,
             )
             shown_labels.add(label)
-    
+
     def _generate_statistics_text(self, metrics: RunMetrics) -> str:
         """Generate statistics text for image overlay"""
         if metrics.t_start and metrics.t_end:
             duration = (metrics.t_end - metrics.t_start).nanoseconds * 1e-9
         else:
             duration = 0
-        
         status_str = {
             GoalStatus.STATUS_SUCCEEDED: "✓ SUCCEEDED",
             GoalStatus.STATUS_ABORTED: "✗ ABORTED",
             GoalStatus.STATUS_CANCELED: "○ CANCELED",
         }.get(metrics.result_status, "? UNKNOWN")
-        
         path_for_overlay = metrics.path_len_m if metrics.path_len_m > 0.0 else metrics.path_len_tf_m
         error_line = f"Error: {metrics.final_dist:.3f}m" if metrics.final_dist is not None else "Error: N/A"
         stats = (
@@ -346,7 +377,6 @@ class TrajectoryVisualizer:
 class Nav2GoalMetrics(Node):
     def __init__(self):
         super().__init__("nav2_goal_metrics")
-        
         # --- Parameters ---
         self.declare_parameter("goal_topic", "/goal_pose")
         self.declare_parameter("dock_pose_topic", "/dock_pose")
@@ -373,6 +403,7 @@ class Nav2GoalMetrics(Node):
         self.declare_parameter("settle_window_s", 1.0)
         self.declare_parameter("tol_xy", 0.15)
         self.declare_parameter("tol_yaw", 0.15)
+        
         # =========================================================================
         # NEW: VISUALIZATION PARAMETERS
         # =========================================================================
@@ -384,6 +415,10 @@ class Nav2GoalMetrics(Node):
         self.declare_parameter("write_trajectory_csv", False)
         self.declare_parameter("csv_trajectory_path", "./trajectory_images/nav2_metrics_trajectory.csv")
         
+        # FIX: ROS 2 parameters do not support nested lists. 
+        # We declare it as a flat list of floats and reshape it later.
+        self.declare_parameter("robot_footprint", [0.46, 0.26, 0.46, -0.26, -0.46, -0.26, -0.46, 0.26])
+
         self.goal_topic = self.get_parameter("goal_topic").value
         self.dock_pose_topic = self.get_parameter("dock_pose_topic").value
         self.goal_source = self.get_parameter("goal_source").value
@@ -406,13 +441,13 @@ class Nav2GoalMetrics(Node):
         self.scan_topic = self.get_parameter("scan_topic").value
         self.global_plan_topic = self.get_parameter("global_plan_topic").value
         self.local_plan_topic = self.get_parameter("local_plan_topic").value
-
+        
         if self.goal_source not in ("goal_pose", "dock_pose", "both"):
             self.get_logger().warn(
                 f"Invalid goal_source '{self.goal_source}', fallback to 'goal_pose'"
             )
             self.goal_source = "goal_pose"
-        
+
         # =========================================================================
         # NEW: VISUALIZATION SETUP
         # =========================================================================
@@ -424,21 +459,25 @@ class Nav2GoalMetrics(Node):
         self.write_trajectory_csv = bool(self.get_parameter("write_trajectory_csv").value)
         self.csv_trajectory_path = self.get_parameter("csv_trajectory_path").value
         
+        # FIX: Reshape the flat list parameter into a list of [x, y] pairs
+        footprint_flat = self.get_parameter("robot_footprint").value
+        self.robot_footprint = [[footprint_flat[i], footprint_flat[i+1]] for i in range(0, len(footprint_flat), 2)]
+
         if self.enable_viz and VISUALIZATION_AVAILABLE:
-            self.visualizer = TrajectoryVisualizer(self.viz_output_dir)
+            self.visualizer = TrajectoryVisualizer(self.viz_output_dir, self.robot_footprint)
             self.get_logger().info(f"Visualization enabled. Output: {self.viz_output_dir}")
         else:
             self.visualizer = None
-            if self.enable_viz and not VISUALIZATION_AVAILABLE:
-                self.get_logger().warn("Visualization requested but matplotlib not available")
-        
+        if self.enable_viz and not VISUALIZATION_AVAILABLE:
+            self.get_logger().warn("Visualization requested but matplotlib not available")
+
         # TF
         self.tf_buffer = tf2_ros.Buffer(cache_time=rclpy.duration.Duration(seconds=10.0))
         self.tf_listener = tf2_ros.TransformListener(self.tf_buffer, self)
-        
+
         # Action client
         self._ac = ActionClient(self, NavigateToPose, self.action_name)
-        
+
         # Subscriptions
         if self.goal_source in ("goal_pose", "both"):
             self.create_subscription(PoseStamped, self.goal_topic, self.on_goal_pose, 10)
@@ -446,7 +485,7 @@ class Nav2GoalMetrics(Node):
             self.create_subscription(PoseStamped, self.dock_pose_topic, self.on_dock_pose, 10)
         self.create_subscription(Odometry, self.odom_topic, self.on_odom, 50)
         self.create_subscription(Twist, self.cmd_vel_topic, self.on_cmd_vel, 50)
-        
+
         # =========================================================================
         # FIX: QoS for /scan - BEST_EFFORT + VOLATILE
         # =========================================================================
@@ -456,22 +495,20 @@ class Nav2GoalMetrics(Node):
             depth=10
         )
         self.create_subscription(LaserScan, self.scan_topic, self.on_scan, scan_qos)
-        
         self.create_subscription(Path, self.global_plan_topic, self.on_global_plan, 10)
         self.create_subscription(Path, self.local_plan_topic, self.on_local_plan, 10)
-
+        
         if self.enable_docking_status_finish:
             status_qos = QoSProfile(depth=1)
             status_qos.reliability = QoSReliabilityPolicy.RELIABLE
             status_qos.durability = QoSDurabilityPolicy.TRANSIENT_LOCAL
             self.create_subscription(String, self.docking_status_topic, self.on_docking_status, status_qos)
-        
+
         self.metrics = RunMetrics()
         self.latest_docking_phase = "IDLE"
-
         if self.enable_csv_logging:
             self._initialize_csv_outputs()
-        
+
         # =========================================================================
         # NEW: TRAJECTORY RECORDING TIMER
         # =========================================================================
@@ -480,7 +517,6 @@ class Nav2GoalMetrics(Node):
                 1.0 / self.trajectory_rate,
                 self.record_trajectory_callback
             )
-
         self.dock_monitor_timer = self.create_timer(0.1, self.monitor_dock_completion)
         
         self.get_logger().info(
@@ -494,10 +530,10 @@ class Nav2GoalMetrics(Node):
             f"TF: {self.global_frame} -> {self.base_frame}\n"
             f"Tip: if in Gazebo, run with --ros-args -p use_sim_time:=true"
         )
-    
+
     def now(self) -> rclpy.time.Time:
         return self.get_clock().now()
-    
+
     def lookup_robot_pose_map(self) -> Optional[tuple]:
         """Return (x, y, yaw) of base_frame in global_frame using TF."""
         try:
@@ -532,7 +568,6 @@ class Nav2GoalMetrics(Node):
         points = self.metrics.trajectory_points
         if len(points) < 2:
             return 0.0
-
         total = 0.0
         for i in range(1, len(points)):
             dx = points[i]['x'] - points[i - 1]['x']
@@ -546,7 +581,6 @@ class Nav2GoalMetrics(Node):
 
     def _dock_tf_pose_for_closeness(self) -> Optional[tuple]:
         """Return dock_tag pose for closeness reporting.
-
         Priority: live TF frame -> TF snapshot.
         """
         dock_tf = self.lookup_frame_pose_map(self.dock_tf_frame)
@@ -573,12 +607,10 @@ class Nav2GoalMetrics(Node):
         robot_pose = self._robot_final_pose_for_metrics()
         if robot_pose is None:
             return
-
         rx, ry, ryaw = robot_pose
         tx, ty, tyaw = self._target_pose_for_error()
         dx = tx - rx
         dy = ty - ry
-
         self.metrics.final_dx = dx
         self.metrics.final_dy = dy
         self.metrics.final_dist = hypot2(dx, dy)
@@ -592,14 +624,12 @@ class Nav2GoalMetrics(Node):
         self.metrics.goal_x = msg.pose.position.x
         self.metrics.goal_y = msg.pose.position.y
         self.metrics.goal_yaw = quat_to_yaw(q.x, q.y, q.z, q.w)
-
         # Keep straight-line denominator aligned with latest target estimate.
         if self.metrics.start_x is not None and self.metrics.start_y is not None:
             self.metrics.straight_line_dist = hypot2(
                 self.metrics.goal_x - self.metrics.start_x,
                 self.metrics.goal_y - self.metrics.start_y,
             )
-
         self.get_logger().info(
             f"Updated active dock target: x={self.metrics.goal_x:.3f} y={self.metrics.goal_y:.3f} "
             f"yaw={math.degrees(self.metrics.goal_yaw):.1f}deg",
@@ -614,13 +644,11 @@ class Nav2GoalMetrics(Node):
             return
         if len(self.metrics.trajectory_points) == 0:
             return
-
         last = self.metrics.trajectory_points[-1]
         lx = last['x']
         ly = last['y']
         lyaw = float(last.get('yaw', 0.0))
         tx, ty, tyaw = target_pose
-
         dx = tx - lx
         dy = ty - ly
         self.metrics.final_dx = dx
@@ -635,45 +663,17 @@ class Nav2GoalMetrics(Node):
         summary_dir = os.path.dirname(self.csv_summary_path)
         if summary_dir:
             os.makedirs(summary_dir, exist_ok=True)
-
         if (not os.path.exists(self.csv_summary_path)) or os.path.getsize(self.csv_summary_path) == 0:
             with open(self.csv_summary_path, "w", newline="", encoding="utf-8") as f:
                 writer = csv.writer(f)
                 writer.writerow([
-                    "timestamp",
-                    "run_id",
-                    "status",
-                    "source_topic",
-                    "duration_s",
-                    "path_len_odom_m",
-                    "path_len_tf_m",
-                    "straight_line_dist_m",
-                    "straight_line_ratio",
-                    "path_source",
-                    "goal_x",
-                    "goal_y",
-                    "goal_yaw_deg",
-                    "final_dx_m",
-                    "final_dy_m",
-                    "final_dist_m",
-                    "final_dyaw_deg",
-                    "along_track_m",
-                    "cross_track_m",
-                    "max_cmd_v_mps",
-                    "max_cmd_w_rps",
-                    "max_act_v_mps",
-                    "max_act_w_rps",
-                    "min_scan_m",
-                    "global_plan_updates",
-                    "local_plan_updates",
-                    "stop_go_count",
-                    "velocity_sign_flips",
-                    "unsafe_clearance_time_s",
-                    "dock_tf_closeness_dist_m",
-                    "dock_tf_closeness_yaw_deg",
-                    "image_path",
+                    "timestamp", "run_id", "status", "source_topic", "duration_s",
+                    "path_len_odom_m", "path_len_tf_m", "straight_line_dist_m", "straight_line_ratio", "path_source",
+                    "goal_x", "goal_y", "goal_yaw_deg", "final_dx_m", "final_dy_m", "final_dist_m", "final_dyaw_deg",
+                    "along_track_m", "cross_track_m", "max_cmd_v_mps", "max_cmd_w_rps", "max_act_v_mps", "max_act_w_rps",
+                    "min_scan_m", "global_plan_updates", "local_plan_updates", "stop_go_count", "velocity_sign_flips",
+                    "unsafe_clearance_time_s", "dock_tf_closeness_dist_m", "dock_tf_closeness_yaw_deg", "image_path",
                 ])
-
         if self.write_trajectory_csv:
             traj_dir = os.path.dirname(self.csv_trajectory_path)
             if traj_dir:
@@ -682,14 +682,7 @@ class Nav2GoalMetrics(Node):
                 with open(self.csv_trajectory_path, "w", newline="", encoding="utf-8") as f:
                     writer = csv.writer(f)
                     writer.writerow([
-                        "run_id",
-                        "source_topic",
-                        "point_index",
-                        "timestamp_s",
-                        "x_m",
-                        "y_m",
-                        "yaw_rad",
-                        "controller",
+                        "run_id", "source_topic", "point_index", "timestamp_s", "x_m", "y_m", "yaw_rad", "controller",
                     ])
 
     def _write_csv_outputs(
@@ -704,10 +697,8 @@ class Nav2GoalMetrics(Node):
         """Append run summary and trajectory samples to CSV outputs."""
         if not self.enable_csv_logging:
             return
-
         goal_yaw_deg = math.degrees(self.metrics.goal_yaw)
         final_dyaw_deg = math.degrees(self.metrics.final_dyaw) if self.metrics.final_dyaw is not None else ""
-
         with open(self.csv_summary_path, "a", newline="", encoding="utf-8") as f:
             writer = csv.writer(f)
             writer.writerow([
@@ -744,7 +735,6 @@ class Nav2GoalMetrics(Node):
                 "" if dock_tf_closeness_yaw_deg is None else f"{dock_tf_closeness_yaw_deg:.2f}",
                 self.metrics.image_path or "",
             ])
-
         if self.write_trajectory_csv and len(self.metrics.trajectory_points) > 0:
             with open(self.csv_trajectory_path, "a", newline="", encoding="utf-8") as f:
                 writer = csv.writer(f)
@@ -762,15 +752,20 @@ class Nav2GoalMetrics(Node):
 
     def start_run(self, msg: PoseStamped, source_topic: str) -> bool:
         """Initialize a new run from goal_pose or dock_pose input."""
+        
+        # =========================================================================
+        # FIX: Abort previous run and IGNORE the new goal
+        # =========================================================================
         if self.metrics.active:
-            if source_topic == "dock_pose" and self.metrics.source_topic == "dock_pose":
-                self._update_active_dock_target(msg)
-                return False
             self.get_logger().warn(
-                f"Already navigating; ignoring new {source_topic}.",
-                throttle_duration_sec=10.0,
+                f"New {source_topic} received while Run #{self.metrics.run_id} is active. "
+                f"Aborting current run and ignoring the new goal."
             )
-            return False
+            self.metrics.active = False
+            self.metrics.result_status = GoalStatus.STATUS_ABORTED
+            self.metrics.t_end = self.now()
+            self.finalize_run_output()
+            return False  # Returning False ensures the new goal is NOT started
 
         if msg.header.frame_id and msg.header.frame_id != self.global_frame:
             self.get_logger().warn(
@@ -782,7 +777,6 @@ class Nav2GoalMetrics(Node):
         goal_y = msg.pose.position.y
         q = msg.pose.orientation
         goal_yaw = quat_to_yaw(q.x, q.y, q.z, q.w)
-
         pose = self.lookup_robot_pose_map()
         straight_line = None
         if pose is not None:
@@ -791,9 +785,8 @@ class Nav2GoalMetrics(Node):
                 (goal_x - rx) ** 2 +
                 (goal_y - ry) ** 2
             )
-
+        
         dock_pose = self.lookup_frame_pose_map(self.dock_tf_frame)
-
         self.metrics = RunMetrics(
             run_id=(self.metrics.run_id + 1),
             active=True,
@@ -813,10 +806,9 @@ class Nav2GoalMetrics(Node):
             dock_tf_yaw=(dock_pose[2] if dock_pose is not None else None),
         )
         self.active_goal_uuid = ""
-
         if pose is not None:
             self.metrics.start_x, self.metrics.start_y, self.metrics.start_yaw = pose
-
+            
         self.get_logger().info(
             f"\n=== RUN {self.metrics.run_id} START ({source_topic}) ===\n"
             f"Target: x={goal_x:.3f} y={goal_y:.3f} yaw={math.degrees(goal_yaw):.1f}deg  frame={msg.header.frame_id or self.global_frame}"
@@ -834,7 +826,7 @@ class Nav2GoalMetrics(Node):
             self.get_logger().info(
                 "Dock pose run active with forwarding mode disabled in this script implementation"
             )
-    
+
     # =========================================================================
     # NEW: TRAJECTORY RECORDING CALLBACK
     # =========================================================================
@@ -842,7 +834,6 @@ class Nav2GoalMetrics(Node):
         """Periodically record robot pose for trajectory visualization"""
         if not self.metrics.active or not self.visualizer:
             return
-        
         pose = self.lookup_robot_pose_map()
         if pose is not None:
             x, y, yaw = pose
@@ -854,34 +845,30 @@ class Nav2GoalMetrics(Node):
                 'controller': controller,
                 'timestamp': self.now().nanoseconds * 1e-9
             })
-            
             # Record start position
             if self.metrics.start_x is None:
                 self.metrics.start_x = x
                 self.metrics.start_y = y
                 self.metrics.start_yaw = yaw
-    
+
     def on_goal_pose(self, msg: PoseStamped):
         if not self.start_run(msg, source_topic="goal_pose"):
-            return
-
+            return  # <-- This ensures the new goal is completely ignored if start_run returned False
         if self.goal_pose_listen_only:
             self.get_logger().info(
                 "Goal pose run active in listen-only mode; Nav2 command is handled by external goal sender"
             )
             return
-
         # Wait for action server then send goal
         if not self._ac.wait_for_server(timeout_sec=2.0):
             self.get_logger().error(f"Nav2 action server '{self.action_name}' not available.")
             self.metrics.active = False
             return
-        
         goal = NavigateToPose.Goal()
         goal.pose = msg  # send the same PoseStamped
         send_future = self._ac.send_goal_async(goal, feedback_callback=self.on_feedback)
         send_future.add_done_callback(self.on_goal_response)
-    
+
     def on_goal_response(self, future):
         goal_handle = future.result()
         if not goal_handle.accepted:
@@ -891,17 +878,15 @@ class Nav2GoalMetrics(Node):
         self.get_logger().info("Goal accepted. Collecting metrics...")
         result_future = goal_handle.get_result_async()
         result_future.add_done_callback(self.on_result)
-    
+
     def on_feedback(self, feedback_msg):
         fb = feedback_msg.feedback
-        # NavigateToPose feedback typically includes distance_remaining, navigation_time, number_of_recoveries, current_pose
         if hasattr(fb, "distance_remaining"):
             dr = float(fb.distance_remaining)
             self.metrics.last_distance_remaining = dr
             self.metrics.min_distance_remaining = min(self.metrics.min_distance_remaining, dr)
         if hasattr(fb, "number_of_recoveries"):
             self.metrics.recoveries = int(fb.number_of_recoveries)
-        
         # Settling detection using feedback current_pose if available
         if hasattr(fb, "current_pose"):
             cp = fb.current_pose
@@ -924,37 +909,31 @@ class Nav2GoalMetrics(Node):
                         self.metrics.settle_time_s = (now - self.metrics.t_start).nanoseconds * 1e-9
             else:
                 self.metrics.within_tol_since = None
-    
+
     def on_odom(self, msg: Odometry):
         if not self.metrics.active:
             return
-        
         x = msg.pose.pose.position.x
         y = msg.pose.pose.position.y
-        
         if self.metrics.last_odom_x is not None:
             self.metrics.path_len_m += hypot2(x - self.metrics.last_odom_x, y - self.metrics.last_odom_y)
         self.metrics.last_odom_x = x
         self.metrics.last_odom_y = y
-        
         # actual speed from odom twist
         vx = msg.twist.twist.linear.x
         vy = msg.twist.twist.linear.y
         wz = msg.twist.twist.angular.z
         v = math.sqrt(vx * vx + vy * vy)
-        
         # RMS accumulation
         self.metrics.sum_v_sq += v * v
         self.metrics.sum_w_sq += abs(wz) * abs(wz)
         self.metrics.sample_count += 1
-        
         # Stop-go detection
         stop_threshold = 0.05
         if self.metrics.last_speed is not None:
             if self.metrics.last_speed > stop_threshold and v < stop_threshold:
                 self.metrics.stop_go_count += 1
         self.metrics.last_speed = v
-        
         # Velocity sign flip (forward/back oscillation)
         vx = msg.twist.twist.linear.x
         current_sign = 1 if vx > 0 else (-1 if vx < 0 else 0)
@@ -962,10 +941,9 @@ class Nav2GoalMetrics(Node):
             if current_sign != 0 and current_sign != self.metrics.last_vx_sign:
                 self.metrics.sign_flip_count += 1
         self.metrics.last_vx_sign = current_sign
-        
         self.metrics.max_act_v = max(self.metrics.max_act_v, v)
         self.metrics.max_act_w = max(self.metrics.max_act_w, abs(wz))
-    
+
     def on_cmd_vel(self, msg: Twist):
         if not self.metrics.active:
             return
@@ -973,27 +951,22 @@ class Nav2GoalMetrics(Node):
         w = abs(msg.angular.z)
         self.metrics.max_cmd_v = max(self.metrics.max_cmd_v, v)
         self.metrics.max_cmd_w = max(self.metrics.max_cmd_w, w)
-    
+
     def on_scan(self, msg: LaserScan):
         if not self.metrics.active:
             return
-        
         now = self.now()
-        
         # Get current robot pose
         pose = self.lookup_robot_pose_map()
         if pose is None:
             return
-        
         rx, ry, ryaw = pose
-        
         # 1️⃣ Compute minimum valid scan distance
         m = float("inf")
         rmin = msg.range_min
         rmax = msg.range_max
         valid_ranges = []
         valid_angles = []
-        
         for i, r in enumerate(msg.ranges):
             if math.isfinite(r) and rmin <= r <= rmax:
                 if r < m:
@@ -1003,7 +976,6 @@ class Nav2GoalMetrics(Node):
                     angle = msg.angle_min + i * msg.angle_increment
                     valid_ranges.append(r)
                     valid_angles.append(angle)
-        
         # 2️⃣ Convert scan points to world coordinates
         obstacle_points = {'x': [], 'y': []}
         for r, angle in zip(valid_ranges, valid_angles):
@@ -1013,7 +985,6 @@ class Nav2GoalMetrics(Node):
             oy = ry + r * math.sin(world_angle)
             obstacle_points['x'].append(ox)
             obstacle_points['y'].append(oy)
-        
         # 3️⃣ Store obstacle points (limit total storage)
         if len(self.metrics.scan_obstacles) < 30:
             self.metrics.scan_obstacles.append({
@@ -1023,37 +994,33 @@ class Nav2GoalMetrics(Node):
                 'obstacles': obstacle_points,
                 'timestamp': now.nanoseconds * 1e-9
             })
-        
         # 4️⃣ Accumulate unsafe clearance time
         if self.metrics.last_scan_time is not None:
             dt = (now - self.metrics.last_scan_time).nanoseconds * 1e-9
             if m < self.metrics.clearance_threshold:
                 self.metrics.unsafe_clearance_time += dt
         self.metrics.last_scan_time = now
-        
         # 5️⃣ Track global minimum scan distance
         if m < self.metrics.min_scan:
             self.metrics.min_scan = m
-    
+
     def on_global_plan(self, _msg: Path):
         if self.metrics.active:
             self.metrics.global_plan_updates += 1
-    
+
     def on_local_plan(self, _msg: Path):
         if self.metrics.active:
             self.metrics.local_plan_updates += 1
-    
+
     def on_result(self, future):
         res = future.result()
         self.metrics.t_end = self.now()
         self.metrics.result_status = int(res.status)
-
         dock_pose = self.lookup_frame_pose_map(self.dock_tf_frame)
         if dock_pose is not None:
             self.metrics.dock_tf_x = dock_pose[0]
             self.metrics.dock_tf_y = dock_pose[1]
             self.metrics.dock_tf_yaw = dock_pose[2]
-        
         # Final robot pose via TF (best)
         pose = self.lookup_robot_pose_map()
         if pose is not None:
@@ -1061,17 +1028,14 @@ class Nav2GoalMetrics(Node):
             target_x = self.metrics.goal_x
             target_y = self.metrics.goal_y
             target_yaw = self.metrics.goal_yaw
-
             dx = target_x - rx
             dy = target_y - ry
-            
             # Transform error into dock frame
             dock_yaw = target_yaw
             along_track =  math.cos(dock_yaw) * dx + math.sin(dock_yaw) * dy
             cross_track = -math.sin(dock_yaw) * dx + math.cos(dock_yaw) * dy
             dist = math.sqrt(dx*dx + dy*dy)
             dyaw = angle_wrap(target_yaw - ryaw)
-            
             self.metrics.final_dx = dx
             self.metrics.final_dy = dy
             self.metrics.final_dist = dist
@@ -1087,7 +1051,6 @@ class Nav2GoalMetrics(Node):
         if not self.metrics.active:
             return
         source = self.metrics.source_topic
-
         if source == "dock_pose":
             if not self.dock_pose_listen_only:
                 return
@@ -1121,7 +1084,6 @@ class Nav2GoalMetrics(Node):
         dy = target_y - ry
         dist = hypot2(dx, dy)
         dyaw = abs(angle_wrap(target_yaw - ryaw))
-
         now = self.now()
         within = (dist <= self.dock_xy_tolerance) and (dyaw <= self.dock_yaw_tolerance)
         if within:
@@ -1175,19 +1137,16 @@ class Nav2GoalMetrics(Node):
     def on_docking_status(self, msg: String):
         """Finish listen-only dock runs from dock_pose_bridge status topic."""
         self._update_docking_phase_from_status(msg.data)
-
         if not self.metrics.active:
             return
         if self.metrics.source_topic != "dock_pose":
             return
         if not self.dock_pose_listen_only:
             return
-
         status_text = (msg.data or "").upper()
         if "DOCK: SUCCESS" in status_text:
             self._finalize_dock_from_status(GoalStatus.STATUS_SUCCEEDED, "Dock status reports success")
             return
-
         if (
             ("DOCK: FAILED" in status_text)
             or ("DOCK: REJECTED" in status_text)
@@ -1211,7 +1170,6 @@ class Nav2GoalMetrics(Node):
         """Classify current controller for trajectory coloring."""
         if self.metrics.source_topic != "dock_pose":
             return "mppi"
-
         phase = (self.latest_docking_phase or "").upper()
         if phase in ("NAV_TO_STAGING", "REQUESTED", "ACCEPTED"):
             return "mppi"
@@ -1223,19 +1181,15 @@ class Nav2GoalMetrics(Node):
         """Finalize active dock_pose run from external docking status signal."""
         if not self.metrics.active:
             return
-
         now = self.now()
         self.metrics.t_end = now
         self.metrics.result_status = int(result_status)
-
         robot_pose = self.lookup_robot_pose_map()
         dock_pose = self.lookup_frame_pose_map(self.dock_tf_frame)
-
         if dock_pose is not None:
             self.metrics.dock_tf_x = dock_pose[0]
             self.metrics.dock_tf_y = dock_pose[1]
             self.metrics.dock_tf_yaw = dock_pose[2]
-
         if robot_pose is not None and dock_pose is not None:
             rx, ry, ryaw = robot_pose
             dx = dock_pose[0] - rx
@@ -1246,7 +1200,7 @@ class Nav2GoalMetrics(Node):
             self.metrics.final_dyaw = angle_wrap(dock_pose[2] - ryaw)
             self.metrics.along_track = math.cos(dock_pose[2]) * dx + math.sin(dock_pose[2]) * dy
             self.metrics.cross_track = -math.sin(dock_pose[2]) * dx + math.cos(dock_pose[2]) * dy
-
+        
         self.metrics.active = False
         self.get_logger().info(reason)
         self.finalize_run_output()
@@ -1255,7 +1209,7 @@ class Nav2GoalMetrics(Node):
         """Generate image and print summary for action result and listen-only completion."""
         self.metrics.path_len_tf_m = self._compute_tf_trajectory_path_length()
         self._recompute_final_error_against_goal_target()
-
+        
         dock_tf_closeness_dist = None
         dock_tf_closeness_dyaw_deg = None
         robot_final_pose = self._robot_final_pose_for_metrics()
@@ -1274,10 +1228,8 @@ class Nav2GoalMetrics(Node):
                 GoalStatus.STATUS_ABORTED: "ABORTED",
                 GoalStatus.STATUS_CANCELED: "CANCELED",
             }.get(self.metrics.result_status, "UNKNOWN")
-
             title = f"Nav2 Run {self.metrics.run_id}: {status_str} ({self.metrics.source_topic})"
             image_path = self.visualizer.generate_static_image(self.metrics, title=title)
-
             if image_path:
                 self.get_logger().info(f"Trajectory image saved: {image_path}")
             else:
@@ -1290,7 +1242,7 @@ class Nav2GoalMetrics(Node):
             GoalStatus.STATUS_CANCELED: "CANCELED",
             GoalStatus.STATUS_UNKNOWN: "UNKNOWN",
         }.get(self.metrics.result_status, f"STATUS_{self.metrics.result_status}")
-
+        
         ratio = None
         ratio_src = ""
         if self.metrics.straight_line_dist is not None and self.metrics.straight_line_dist > 0:
@@ -1337,34 +1289,27 @@ class Nav2GoalMetrics(Node):
             print(f"Recoveries (Nav2)    : {self.metrics.recoveries}")
         print(f"Global plan updates  : {self.metrics.global_plan_updates}  (topic: {self.global_plan_topic})")
         print(f"Local plan updates   : {self.metrics.local_plan_updates}  (topic: {self.local_plan_topic})")
-
         if ratio is not None:
             print(f"Straight-line ratio  : {ratio:.3f}  (path source: {ratio_src})")
-
         if self.metrics.sample_count > 0:
             rms_v = math.sqrt(self.metrics.sum_v_sq / self.metrics.sample_count)
             rms_w = math.sqrt(self.metrics.sum_w_sq / self.metrics.sample_count)
             print(f"RMS linear velocity  : {rms_v:.3f} m/s")
             print(f"RMS angular velocity : {rms_w:.3f} rad/s")
-
         print(f"Stop-go count        : {self.metrics.stop_go_count}")
         print(f"Velocity sign flips  : {self.metrics.sign_flip_count}")
         print(f"Unsafe clearance time: {self.metrics.unsafe_clearance_time:.3f} s "
               f"(threshold {self.metrics.clearance_threshold} m)")
-
         if self.metrics.image_path:
             print(f"Trajectory image     : {self.metrics.image_path}")
-
         if dock_tf_closeness_dist is not None and dock_tf_closeness_dyaw_deg is not None:
             print(f"{'Dock TF closeness':<20}: dist={dock_tf_closeness_dist:.3f} m  yaw={dock_tf_closeness_dyaw_deg:.2f} deg")
         else:
             print(f"{'Dock TF closeness':<20}: (dock_tf unavailable)")
-
         if self.metrics.along_track is not None:
             print("Dock frame error:")
             print(f"  Along-track error  : {self.metrics.along_track:.3f} m")
             print(f"  Cross-track error  : {self.metrics.cross_track:.3f} m")
-
         print("=" * 60 + "\n")
 
 # ============================================================================

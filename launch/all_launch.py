@@ -14,11 +14,11 @@ def generate_launch_description():
     use_sim_time = LaunchConfiguration('use_sim_time')
     camera_source = LaunchConfiguration('camera_source')
     all_launch_share = get_package_share_directory('all_launch')
-    preferred_rviz_config = '/home/thamyis/SLAM_ws/person.rviz'
+    preferred_rviz_config = '/home/thamyis/SLAM_ws/xxperson.rviz'
     rviz_config = (
         preferred_rviz_config
         if os.path.exists(preferred_rviz_config)
-        else os.path.join(all_launch_share, 'rviz', 'person.rviz')
+        else os.path.join(all_launch_share, 'rviz', 'xxperson.rviz')
     )
 
     use_sim_time_arg = DeclareLaunchArgument(
@@ -91,7 +91,7 @@ def generate_launch_description():
         launch_arguments={
             'use_sim_time': use_sim_time,
             # Keep legacy all_launch webcam node off; camera source is controlled by mecanum_bot.
-            'use_logitech_camera': 'false',
+            'use_logitech_camera': 'true',
         }.items(),
     )
 
@@ -115,7 +115,7 @@ def generate_launch_description():
         static_tf_node,
         slam_node,
         
-        # controller_switcher,
+        controller_switcher,
         mppi,
         robot_sim,
         rviz_node,

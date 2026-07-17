@@ -117,7 +117,7 @@ def generate_launch_description():
     #     print(f"WARNING: could not create slam_toolbox node: {e}")
 
     # RViz2 node running with the Nav2 default view
-    rviz_config = '/home/thamyis/SLAM_ws/person.rviz'
+    rviz_config = '/home/thamyis/SLAM_ws/xxperson.rviz'
     rviz_node = Node(
         package='rviz2',
         executable='rviz2',

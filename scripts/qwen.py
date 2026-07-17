@@ -754,18 +754,22 @@ class Nav2GoalMetrics(Node):
         """Initialize a new run from goal_pose or dock_pose input."""
         
         # =========================================================================
-        # FIX: Abort previous run and IGNORE the new goal
+        # FIX: Keep dock_pose updates on the active run, but allow goal updates
+        # to replace the current run.
         # =========================================================================
         if self.metrics.active:
+            if source_topic == "dock_pose" and self.metrics.source_topic == "dock_pose":
+                self._update_active_dock_target(msg)
+                return False
+
             self.get_logger().warn(
                 f"New {source_topic} received while Run #{self.metrics.run_id} is active. "
-                f"Aborting current run and ignoring the new goal."
+                f"Aborting current run and starting the new one."
             )
             self.metrics.active = False
             self.metrics.result_status = GoalStatus.STATUS_ABORTED
             self.metrics.t_end = self.now()
             self.finalize_run_output()
-            return False  # Returning False ensures the new goal is NOT started
 
         if msg.header.frame_id and msg.header.frame_id != self.global_frame:
             self.get_logger().warn(

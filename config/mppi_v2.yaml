@@ -296,7 +296,7 @@ global_costmap:
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"
         enabled: true
-        inflation_radius: 0.5
+        inflation_radius: 0.75
         cost_scaling_factor: 3.0
         inflate_unknown: false
         inflate_around_unknown: true
@@ -364,14 +364,14 @@ local_costmap:
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"
         enabled: true
-        inflation_radius: 0.5
+        inflation_radius: 0.75
         cost_scaling_factor: 3.0
       introspection_mode: "disabled"
 
 
 bt_navigator:
   ros__parameters:
-    default_nav_to_pose_bt_xml: "/home/mobimobi/Desktop/TayoAMR/src/all_launch/config/omni_diff_omni.xml"
+    default_nav_to_pose_bt_xml: "/home/thamyis/SLAM_ws/src/all_launch/config/omni_diff_omni.xml"
     # default_nav_through_poses_bt_xml: "/home/thamyis/SLAM_ws/src/all_launch/config/omni_diff_omni_through.xml"
     goal_reached_tol: 2.0
 
@@ -464,6 +464,7 @@ docking_server:
     undock_linear_tolerance: 0.05
     undock_angular_tolerance: 0.10
     max_retries: 3
+    dock_backwards: true
     base_frame: "base_link"
     fixed_frame: "odom"
     odom_topic: "odom"
@@ -473,21 +474,22 @@ docking_server:
 
     dock_plugins: ["simple_charging_dock"]
     simple_charging_dock:
-      dock_direction: "forward"
+      dock_direction: "backward"
       plugin: "opennav_docking::SimpleChargingDock"
-      docking_threshold: 0.05
-      staging_x_offset: -0.80
+      docking_threshold: 0.6
+      staging_x_offset: 0.80
       staging_yaw_offset: 0.0
       use_external_detection_pose: true
+      # rotate_to_dock: true
       subscribe_toggle: false
       use_battery_status: false
       use_stall_detection: false
       external_detection_timeout: 2.5
-      external_detection_translation_x: -0.7
+      external_detection_translation_x: 0.0
       external_detection_translation_y: 0.0
       external_detection_rotation_roll: -1.57
       external_detection_rotation_pitch: -1.57
-      external_detection_rotation_yaw: 3.14
+      external_detection_rotation_yaw: 0.0
       filter_coef: 0.2
 
     docks: ["dummy_dock"]

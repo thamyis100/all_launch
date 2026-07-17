@@ -82,6 +82,10 @@ def generate_launch_description():
         FindPackageShare('all_launch'), 'launch', point_lio_launch
     ])
 
+    mppi_launch_path = PathJoinSubstitution([
+        FindPackageShare('all_launch'), 'launch', 'mppi.py'
+    ])
+
     livox_launch_path = PathJoinSubstitution([
         FindPackageShare('livox_ros_driver2'), 'launch_ROS2', 'msg_MID360_launch.py'
     ])
@@ -102,6 +106,12 @@ def generate_launch_description():
     ld.add_action(IncludeLaunchDescription(
         PythonLaunchDescriptionSource(point_lio_launch_path),
         launch_arguments={'use_sim_time': use_sim_time}.items(),
+    ))
+
+    # all_launch mppi with docking enabled
+    ld.add_action(IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(mppi_launch_path),
+        launch_arguments={'use_sim_time': use_sim_time, 'use_logitech_camera': 'true'}.items(),
     ))
 
     # camera static TFs for camera visualization and tag localization chain

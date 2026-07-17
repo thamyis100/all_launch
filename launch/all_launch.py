@@ -39,7 +39,7 @@ def generate_launch_description():
     ))
 
     ld.add_action(DeclareLaunchArgument(
-        'enable_camera_tf', default_value='true',
+        'enable_camera_tf', default_value='false',
         description='Publish static TF for camera_link and camera_optical_frame'
     ))
 
@@ -131,14 +131,14 @@ def generate_launch_description():
         output='screen'
     ))
 
-    # person pose bridge (change these 2 lines if your names differ)
-    ld.add_action(Node(
-        package='person_pose_bridge',
-        executable='person_pose_bridge_node',
-        name='person_pose_bridge_node',
-        output='screen',
-        parameters=[{'use_sim_time': use_sim_time}],
-    ))
+    # # person pose bridge (change these 2 lines if your names differ)
+    # ld.add_action(Node(
+    #     package='person_pose_bridge',
+    #     executable='person_pose_bridge_node',
+    #     name='person_pose_bridge_node',
+    #     output='screen',
+    #     parameters=[{'use_sim_time': use_sim_time}],
+    # ))
 
     # Run raw python script from all_launch/scripts using python3
     controller_switch_script = PathJoinSubstitution([

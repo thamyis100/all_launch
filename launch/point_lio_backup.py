@@ -19,27 +19,12 @@ def generate_launch_description():
     ))
     use_sim_time = LaunchConfiguration('use_sim_time')
 
-    # --- Static transform: map -> odom (fixed relationship) ---
-    map_to_odom_tf = Node(
-        package='tf2_ros',
-        executable='static_transform_publisher',
-        name='map_to_odom',
-        arguments=['--x', '0', '--y', '0', '--z', '0',
-                   '--roll', '0', '--pitch', '0', '--yaw', '0',
-                   '--frame-id', 'map', '--child-frame-id', 'odom'],
-        parameters=[{'use_sim_time': use_sim_time}],
-        output='screen'
-    )
-    ld.add_action(map_to_odom_tf)
-    
-    # --- Static transform: laser_frame -> base_link (lidar mounting offset)
+    # --- Static transform: laser_frame -> base_link
     static_tf_node = Node(
         package='tf2_ros',
         executable='static_transform_publisher',
         name='laser_frame_to_base_link',
-        arguments=['--x', '-0.35', '--y', '0', '--z', '0',
-                   '--roll', '0', '--pitch', '0', '--yaw', '0',
-                   '--frame-id', 'laser_frame', '--child-frame-id', 'base_link'],
+        arguments=['-0.35', '0', '0', '0', '0', '3.1415926535', 'laser_frame', 'base_link'],
         parameters=[{'use_sim_time': use_sim_time}],
         output='screen'
     )

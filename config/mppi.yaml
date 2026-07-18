@@ -468,7 +468,8 @@ docking_server:
     fixed_frame: "odom"
     odom_topic: "odom"
     odom_duration: 0.3
-    dock_prestaging_tolerance: 0.5
+    # Bypass the staging gate: accept the staging condition immediately.
+    dock_prestaging_tolerance: 999.0
     introspection_mode: "disabled"
 
     dock_plugins: ["simple_charging_dock"]

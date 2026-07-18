@@ -469,7 +469,8 @@ docking_server:
     fixed_frame: "odom"
     odom_topic: "odom"
     odom_duration: 0.3
-    dock_prestaging_tolerance: 0.5
+    # Bypass the staging gate: accept the staging condition immediately.
+    dock_prestaging_tolerance: 5.0
     introspection_mode: "disabled"
 
     dock_plugins: ["simple_charging_dock"]
@@ -477,7 +478,8 @@ docking_server:
       dock_direction: "backward"
       plugin: "opennav_docking::SimpleChargingDock"
       docking_threshold: 0.6
-      staging_x_offset: 0.80
+      # Bypass the staging leg: make the staging pose coincide with the dock pose.
+      staging_x_offset: 0.0
       staging_yaw_offset: 0.0
       use_external_detection_pose: true
       # rotate_to_dock: true

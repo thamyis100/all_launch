@@ -91,7 +91,7 @@ def generate_launch_description():
         launch_arguments={
             'use_sim_time': use_sim_time,
             # Keep legacy all_launch webcam node off; camera source is controlled by mecanum_bot.
-            'use_logitech_camera': 'true',
+            'use_logitech_camera': 'false',
         }.items(),
     )
 

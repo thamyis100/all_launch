@@ -295,6 +295,20 @@ def generate_launch_description():
             # ),
 
             Node(
+                package="all_launch",
+                executable="camera_sync_republisher.py",
+                name="camera_sync_republisher",
+                output="screen",
+                parameters=[{
+                    "input_image_topic": "/camera/image_raw",
+                    "input_camera_info_topic": "/camera/camera_info",
+                    "output_image_topic": "/camera/image_apriltag",
+                    "output_camera_info_topic": "/camera/camera_info_apriltag",
+                }],
+                condition=IfCondition(use_docking),
+            ),
+
+            Node(
                 package="apriltag_ros",
                 executable="apriltag_node",
                 name="apriltag",
@@ -302,8 +316,8 @@ def generate_launch_description():
                 parameters=[apriltag_params_file],
                 remappings=common_remaps + [
                     # Consume republished image+info with matching stamps.
-                    ("image_rect", "/camera/image_raw"),
-                    ("camera_info", "/camera/camera_info"),
+                    ("image_rect", "/camera/image_apriltag"),
+                    ("camera_info", "/camera/camera_info_apriltag"),
                 ],
                 condition=IfCondition(use_docking),
             ),
